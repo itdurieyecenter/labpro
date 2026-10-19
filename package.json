@@ -1,0 +1,27 @@
+{
+  "name": "lispro",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build:css": "tailwindcss -i ./assets/src/style.css -o ./assets/css/tailwind.css",
+    "build:css:prod": "tailwindcss -i ./assets/src/style.css -o ./assets/css/tailwind.min.css --minify",
+    "watch:css": "tailwindcss -i ./assets/src/style.css -o ./assets/css/tailwind.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@tailwindcss/forms": "^0.5.11",
+    "@tailwindcss/typography": "^0.5.20",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.30",
+    "tailwindcss": "^3.4.19"
+  },
+  "dependencies": {
+    "alpinejs": "^3.17.4",
+    "lucide": "^1.58.0",
+    "sweetalert2": "^11.26.25"
+  }
+}
