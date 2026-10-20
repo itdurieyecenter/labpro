@@ -1,0 +1,56 @@
+# LIS PRO - UPT Laboratorium Kesehatan Provinsi Riau
+# Stack terisolasi: tidak menyentuh konfigurasi aplikasi lain di VPS ini.
+# Web dipublikasikan di host port 8085; MariaDB hanya di jaringan internal compose.
+
+services:
+  db:
+    image: mariadb:10.11
+    container_name: lispro-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASS}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASS}
+      TZ: Asia/Jakarta
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_general_ci
+      --max-allowed-packet=64M
+    volumes:
+      - lispro_dbdata:/var/lib/mysql
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  web:
+    build:
+      context: ./docker
+    image: lispro-web:latest
+    container_name: lispro-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      CI_ENCRYPTION_KEY: ${CI_ENCRYPTION_KEY}
+      CI_LOG_THRESHOLD: "1"
+      APP_BASE_URL: ${APP_BASE_URL}
+      TZ: Asia/Jakarta
+    ports:
+      - "8085:80"
+    volumes:
+      - ./app:/var/www/html
+      - lispro_sessions:/var/lib/php/sessions
+
+volumes:
+  lispro_dbdata:
+  lispro_sessions:

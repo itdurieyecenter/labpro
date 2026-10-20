@@ -25,7 +25,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 */
 $root = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . ($_SERVER['HTTP_HOST'] ?? 'localhost');
 $root .= str_replace(basename($_SERVER['SCRIPT_NAME']), '', $_SERVER['SCRIPT_NAME']);
-$config['base_url'] = $root;
+$config['base_url'] = getenv('APP_BASE_URL') ?: $root;
 $config['index_page'] = '';
 
 /*
@@ -216,7 +216,7 @@ $config['allow_get_array'] = TRUE;
 | your log files will fill up very fast.
 |
 */
-$config['log_threshold'] = 4;
+$config['log_threshold'] = (int) (getenv('CI_LOG_THRESHOLD') ?: 4);
 
 /*
 |--------------------------------------------------------------------------
@@ -317,7 +317,7 @@ $config['cache_query_string'] = FALSE;
 | https://codeigniter.com/userguide3/libraries/encryption.html
 |
 */
-$config['encryption_key'] = 'lispro_secret_key_rbac_system_2026';
+$config['encryption_key'] = getenv('CI_ENCRYPTION_KEY') ?: 'lispro_secret_key_rbac_system_2026';
 
 /*
 |--------------------------------------------------------------------------

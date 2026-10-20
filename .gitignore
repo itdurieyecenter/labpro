@@ -32,3 +32,10 @@ user_guide_src/cilexer/pycilexer.egg-info/*
 /tests/results/
 
 node_modules/
+
+# Dokumen klien & data sensitif - JANGAN di-commit
+ALLDOC/
+*.pem
+/deploy/.env
+/deploy/initdb/
+/deploy/backups/
