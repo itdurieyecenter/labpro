@@ -67,7 +67,7 @@
                                 </td>
                                 <td class="py-3 px-3">
                                     <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                        <?= html_escape($r['test_category'] ?: 'Umum') ?>
+                                        <?= html_escape($r['category_name'] ?: 'Umum') ?>
                                     </span>
                                 </td>
                                 <td class="py-3 px-3">
@@ -153,7 +153,7 @@
                     <option value="">-- Pilih Parameter Uji --</option>
                     <?php foreach ($parameters as $p): ?>
                         <option value="<?= $p['id'] ?>" data-unit="<?= html_escape($p['unit']) ?>">
-                            [<?= html_escape($p['test_category'] ?: 'Umum') ?>] <?= html_escape($p['parameter_name']) ?> (<?= html_escape($p['unit'] ?: '-') ?>)
+                            [<?= html_escape($p['category_name'] ?: 'Umum') ?>] <?= html_escape($p['parameter_name']) ?> (<?= html_escape($p['unit'] ?: '-') ?>)
                         </option>
                     <?php endforeach; ?>
                 </select>

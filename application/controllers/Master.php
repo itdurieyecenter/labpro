@@ -97,7 +97,13 @@ class Master extends CI_Controller {
         $this->db->order_by('p.parameter_name', 'ASC');
         $data['ranges'] = $this->db->get()->result_array();
 
-        $data['parameters'] = $this->db->where('is_active', 1)->order_by('parameter_name', 'ASC')->get('lab_parameters')->result_array();
+        // Join kategori agar label kategori parameter tersedia (c.category_name)
+        $this->db->select('p.*, c.category_name');
+        $this->db->from('lab_parameters p');
+        $this->db->join('lab_categories c', 'c.id = p.category_id', 'left');
+        $this->db->where('p.is_active', 1);
+        $this->db->order_by('p.parameter_name', 'ASC');
+        $data['parameters'] = $this->db->get()->result_array();
 
         $this->load->view('layout/header', $data);
         $this->load->view('layout/sidebar', $data);
