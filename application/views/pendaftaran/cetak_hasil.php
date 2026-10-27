@@ -293,21 +293,12 @@
             <div style="display: flex; align-items: center; gap: 10px;">
                 <?php if ($isSah): ?>
                 <div class="qr-placeholder">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#064e3b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect>
-                        <rect x="3" y="14" width="7" height="7"></rect>
-                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                        <line x1="17" y1="7" x2="17.01" y2="7"></line>
-                        <line x1="7" y1="17" x2="7.01" y2="17"></line>
-                        <line x1="17" y1="17" x2="17.01" y2="17"></line>
-                    </svg>
+                    <div id="lhu-qr" data-url="<?= html_escape($verify_url) ?>" style="width:60px; height:60px; display:flex; align-items:center; justify-content:center;"></div>
                     <span class="qr-text"><?= html_escape($reg['barcode_sampel']) ?></span>
                 </div>
                 <div style="font-size: 8.5px; color: #475569; line-height: 1.35;">
                     <strong style="color: #064e3b; display: block; font-size: 9px;">DOKUMEN RESMI ELEKTRONIK</strong>
-                    Pemeriksaan diverifikasi berjenjang oleh tim laboratorium terakreditasi ISO 15189 / KAN 17025.
+                    Pindai QR untuk memverifikasi keaslian dokumen ini secara daring. Diverifikasi berjenjang oleh tim laboratorium terakreditasi ISO 15189 / KAN 17025.
                 </div>
                 <?php else: ?>
                 <div class="qr-placeholder" style="border-color: #fca5a5; background: #fff5f5;">
@@ -385,6 +376,29 @@
         <span>Dicetak: <?= date('d/m/Y H:i:s') ?> &bull; LIS PRO RIAU</span>
     </div>
 </div>
+
+<?php if ($isSah && !empty($verify_url)): ?>
+<script src="<?= base_url('assets/plugins/qrcode/qrcode.min.js') ?>"></script>
+<script>
+// Render QR validasi keaslian LHU (berisi URL verifikasi publik, bukan data medis).
+(function () {
+    var el = document.getElementById('lhu-qr');
+    if (!el || typeof qrcode === 'undefined') return;
+    var url = el.getAttribute('data-url');
+    if (!url) return;
+    try {
+        var qr = qrcode(0, 'M');       // tipe auto, koreksi galat level M
+        qr.addData(url);
+        qr.make();
+        el.innerHTML = qr.createSvgTag({ scalable: true, margin: 0 });
+        var svg = el.querySelector('svg');
+        if (svg) { svg.setAttribute('width', '60'); svg.setAttribute('height', '60'); }
+    } catch (e) {
+        el.innerHTML = '<span style="font-size:7px;color:#64748b;">QR gagal dibuat</span>';
+    }
+})();
+</script>
+<?php endif; ?>
 
 </body>
 </html>

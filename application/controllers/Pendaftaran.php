@@ -755,6 +755,13 @@ class Pendaftaran extends CI_Controller {
         }
         $data['grouped_items'] = $grouped;
 
+        // URL verifikasi publik untuk QR keaslian LHU (token HMAC, tanpa data medis).
+        $data['verify_url'] = '';
+        if (!empty($data['reg']['barcode_sampel'])) {
+            $token = $this->pendaftaran_model->verification_token($id, $data['reg']['barcode_sampel']);
+            $data['verify_url'] = base_url('verifikasi/' . (int)$id . '/' . $token);
+        }
+
         $this->load->view('pendaftaran/cetak_hasil', $data);
     }
 }

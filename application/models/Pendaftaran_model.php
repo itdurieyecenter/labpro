@@ -199,6 +199,27 @@ class Pendaftaran_model extends CI_Model {
     }
 
     /**
+     * Token verifikasi keaslian LHU untuk QR publik.
+     * HMAC-SHA256 dari id|barcode_sampel memakai encryption_key aplikasi,
+     * dipangkas 16 hex. Tidak disimpan di DB (dihitung ulang saat verifikasi),
+     * sehingga tidak bisa ditebak/di-enumerasi tanpa tahu kunci rahasia server.
+     */
+    public function verification_token($id, $barcode_sampel) {
+        $key = config_item('encryption_key');
+        return substr(hash_hmac('sha256', (int)$id . '|' . $barcode_sampel, $key), 0, 16);
+    }
+
+    /**
+     * Data minimal untuk halaman verifikasi publik — HANYA metadata keaslian,
+     * tanpa nilai hasil medis maupun identitas lengkap pasien.
+     */
+    public function get_minimal_for_verify($id) {
+        $this->db->select('id, nomor_registrasi, barcode_sampel, nama_pasien, tanggal_pendaftaran, status_order, waktu_hasil_selesai, dokter_pj, kategori_pemeriksaan');
+        $this->db->where('id', (int)$id);
+        return $this->db->get($this->table)->row_array();
+    }
+
+    /**
      * Generate Kuitansi Kasir Otomatis (KWT-YYYYMMDD-XXXX)
      */
     public function generate_kuitansi_number() {

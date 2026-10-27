@@ -52,6 +52,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $route['default_controller'] = 'auth/login';
 $route['login'] = 'auth/login';
 $route['logout'] = 'auth/logout';
+// Verifikasi keaslian LHU publik (tanpa login): /verifikasi/{id}/{token}
+$route['verifikasi/(:num)/(:any)'] = 'verifikasi/cek/$1/$2';
 $route['dashboard'] = 'dashboard';
 $route['pendaftaran'] = 'pendaftaran/index';
 $route['pendaftaran/(:any)'] = 'pendaftaran/$1';
