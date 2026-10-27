@@ -45,28 +45,7 @@
         .tests-summary { font-size: 7.5px; color: #047857; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; background: #f0fdf4; padding: 1px 4px; border-radius: 2px; }
 
         .barcode-section { text-align: center; margin-top: 1px; }
-        .barcode-bars {
-            height: 28px;
-            width: 100%;
-            background: repeating-linear-gradient(
-                90deg,
-                #000 0, #000 1.5px,
-                #fff 1.5px, #fff 3px,
-                #000 3px, #000 5px,
-                #fff 5px, #fff 6px,
-                #000 6px, #000 8.5px,
-                #fff 8.5px, #fff 10px,
-                #000 10px, #000 11px,
-                #fff 11px, #fff 13px,
-                #000 13px, #000 15px,
-                #fff 15px, #fff 17px,
-                #000 17px, #000 19px,
-                #fff 19px, #fff 20px,
-                #000 20px, #000 23px,
-                #fff 23px, #fff 24px,
-                #000 24px, #000 26px
-            );
-        }
+        .barcode-svg { height: 28px; width: 100%; display: block; }
         .barcode-text { font-size: 9.5px; font-family: monospace; font-weight: 900; letter-spacing: 1.5px; color: #000; margin-top: 1px; }
 
         .sample-footer { display: flex; justify-content: space-between; font-size: 7.5px; font-weight: bold; color: #334155; border-top: 1px solid #e2e8f0; padding-top: 2px; }
@@ -128,7 +107,7 @@ $testSummaryStr = !empty($testSummary) ? implode(', ', $testSummary) : ($reg['ka
             </div>
 
             <div class="barcode-section">
-                <div class="barcode-bars"></div>
+                <svg class="barcode-svg" data-barcode="<?= html_escape($reg['barcode_sampel']) ?>"></svg>
                 <div class="barcode-text"><?= html_escape($reg['barcode_sampel']) ?></div>
             </div>
 
@@ -140,7 +119,33 @@ $testSummaryStr = !empty($testSummary) ? implode(', ', $testSummary) : ($reg['ka
     <?php endfor; ?>
 </div>
 
+<script src="<?= base_url('assets/plugins/jsbarcode/JsBarcode.all.min.js') ?>"></script>
 <script>
+// Gambar barcode CODE128 asli (bisa dipindai) ke setiap label.
+// barcode_sampel (mis. SMP-261027-0001) di-encode penuh sebagai rantai lacak spesimen.
+function renderBarcodes() {
+    if (typeof JsBarcode === 'undefined') {
+        // Pustaka gagal dimuat: sembunyikan kanvas kosong, sisakan teks agar tetap terbaca manual.
+        document.querySelectorAll('.barcode-svg').forEach(function (svg) { svg.style.display = 'none'; });
+        return;
+    }
+    document.querySelectorAll('.barcode-svg').forEach(function (svg) {
+        var value = svg.getAttribute('data-barcode');
+        if (!value) return;
+        try {
+            JsBarcode(svg, value, {
+                format: 'CODE128',
+                width: 1.4,        // lebar tiap modul (px); CSS meregang ke lebar label
+                height: 28,
+                margin: 0,
+                displayValue: false // teks ditangani .barcode-text di bawah bar
+            });
+        } catch (e) {
+            svg.style.display = 'none';
+        }
+    });
+}
+
 function setLabelCount(count) {
     const labels = document.querySelectorAll('.label-item');
     labels.forEach((lbl, idx) => {
@@ -151,6 +156,8 @@ function setLabelCount(count) {
         }
     });
 }
+
+renderBarcodes();
 </script>
 
 </body>
