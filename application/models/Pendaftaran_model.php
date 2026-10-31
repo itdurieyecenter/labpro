@@ -49,6 +49,13 @@ class Pendaftaran_model extends CI_Model {
             $this->db->where('tanggal_pendaftaran', $tanggal);
         }
 
+        // Modul terpisah: pendaftaran uji lingkungan tidak bercampur dengan pendaftaran klinis
+        if (($params['modul'] ?? '') === 'lingkungan') {
+            $this->db->where('kategori_pemeriksaan', 'lingkungan');
+        } else {
+            $this->db->where('kategori_pemeriksaan !=', 'lingkungan');
+        }
+
         if (!empty($search)) {
             $this->db->group_start();
             $this->db->like('nomor_registrasi', $search);
@@ -135,7 +142,7 @@ class Pendaftaran_model extends CI_Model {
 
         $this->db->select('nomor_registrasi');
         $this->db->like('nomor_registrasi', $prefix, 'after');
-        $this->db->order_by('id', 'DESC');
+        $this->db->order_by('nomor_registrasi', 'DESC'); // nomor berlebar tetap -> memakai indeks, bukan scan PK
         $this->db->limit(1);
         $last = $this->db->get($this->table)->row_array();
 
@@ -159,7 +166,7 @@ class Pendaftaran_model extends CI_Model {
 
         $this->db->select('nomor_billing');
         $this->db->like('nomor_billing', $prefix, 'after');
-        $this->db->order_by('id', 'DESC');
+        $this->db->order_by('nomor_billing', 'DESC'); // nomor berlebar tetap -> memakai indeks, bukan scan PK
         $this->db->limit(1);
         $last = $this->db->get($this->table)->row_array();
 
@@ -183,7 +190,7 @@ class Pendaftaran_model extends CI_Model {
 
         $this->db->select('barcode_sampel');
         $this->db->like('barcode_sampel', $prefix, 'after');
-        $this->db->order_by('id', 'DESC');
+        $this->db->order_by('barcode_sampel', 'DESC'); // nomor berlebar tetap -> memakai indeks, bukan scan PK
         $this->db->limit(1);
         $last = $this->db->get($this->table)->row_array();
 
@@ -228,7 +235,7 @@ class Pendaftaran_model extends CI_Model {
 
         $this->db->select('nomor_kuitansi');
         $this->db->like('nomor_kuitansi', $prefix, 'after');
-        $this->db->order_by('id', 'DESC');
+        $this->db->order_by('nomor_kuitansi', 'DESC'); // nomor berlebar tetap -> memakai indeks, bukan scan PK
         $this->db->limit(1);
         $last = $this->db->get($this->table)->row_array();
 
@@ -244,31 +251,9 @@ class Pendaftaran_model extends CI_Model {
     }
 
     /**
-     * Simpan Pendaftaran & Order LIS Baru (Alur 1)
+     * Simpan rincian item pemeriksaan (parameter / paket; paket lab diperluas ke sub-parameternya).
      */
-    public function save_pendaftaran($data, $items, $userId = null, $userName = 'Petugas') {
-        $this->db->trans_start();
-
-        // 1. Pastikan Kode Otomatis Terisi
-        if (empty($data['nomor_registrasi'])) {
-            $data['nomor_registrasi'] = $this->generate_reg_number();
-        }
-        if (empty($data['nomor_billing'])) {
-            $data['nomor_billing'] = $this->generate_billing_number();
-        }
-        if (empty($data['barcode_sampel'])) {
-            $data['barcode_sampel'] = $this->generate_sample_barcode();
-        }
-
-        $data['tanggal_pendaftaran'] = !empty($data['tanggal_pendaftaran']) ? $data['tanggal_pendaftaran'] : date('Y-m-d');
-        $data['jam_pendaftaran'] = !empty($data['jam_pendaftaran']) ? $data['jam_pendaftaran'] : date('H:i:s');
-        $data['created_by'] = $userId;
-
-        // 2. Insert ke tabel pendaftaran
-        $this->db->insert($this->table, $data);
-        $pendaftaranId = $this->db->insert_id();
-
-        // 3. Insert items pemeriksaan
+    private function _insert_items($pendaftaranId, $items) {
         if (!empty($items) && is_array($items)) {
             foreach ($items as $item) {
                 $itemType = isset($item['tipe_item']) ? $item['tipe_item'] : 'parameter';
@@ -335,6 +320,114 @@ class Pendaftaran_model extends CI_Model {
                 }
             }
         }
+    }
+
+    /**
+     * Tambah pemeriksaan ke pendaftaran yang sudah terbit. Total tagihan dihitung ulang
+     * (diskon persen pendaftaran tetap berlaku). Hanya untuk tagihan UNPAID / GUARANTEED.
+     */
+    public function add_items($id, array $items, $userId = null, $userName = 'Petugas') {
+        $reg = $this->db->get_where($this->table, ['id' => (int)$id])->row_array();
+        if (!$reg) {
+            return ['status' => false, 'message' => 'Data pendaftaran tidak ditemukan.'];
+        }
+        if (!in_array($reg['status_pembayaran'], ['UNPAID', 'GUARANTEED'], true)) {
+            $why = $reg['status_pembayaran'] === 'PAID'
+                ? 'Tagihan sudah lunas, total tidak bisa diubah. Buat pendaftaran baru untuk pemeriksaan tambahan.'
+                : 'Pendaftaran sudah dibatalkan.';
+            return ['status' => false, 'message' => $why];
+        }
+        if (!in_array($reg['status_order'], ['registered', 'sampling', 'processing'], true)) {
+            return ['status' => false, 'message' => 'Hasil sudah masuk tahap validasi / selesai, pemeriksaan tidak dapat ditambah.'];
+        }
+        if (!empty($reg['closing_id'])) {
+            return ['status' => false, 'message' => 'Transaksi sudah masuk closing kasir.'];
+        }
+        if (empty($items)) {
+            return ['status' => false, 'message' => 'Pilih minimal 1 pemeriksaan.'];
+        }
+
+        $add = ['tarif' => 0, 'jasa_manajemen' => 0, 'jasa_dokter' => 0, 'jasa_petugas' => 0, 'kso' => 0, 'bhp' => 0];
+        $names = [];
+        foreach ($items as $it) {
+            foreach ($add as $k => $_) {
+                $add[$k] += (float)($it[$k] ?? 0);
+            }
+            $names[] = $it['nama_item'] ?? '-';
+        }
+
+        $subtotal = (float)$reg['subtotal_tarif'] + $add['tarif'];
+        $diskonNominal = ($subtotal * (float)$reg['diskon_persen']) / 100;
+        $total = max(0, $subtotal - $diskonNominal);
+
+        $this->db->trans_start();
+        $this->_insert_items((int)$id, $items);
+        $this->db->where('id', (int)$id)->update($this->table, [
+            'subtotal_tarif' => $subtotal,
+            'diskon_nominal' => $diskonNominal,
+            'total_biaya' => $total,
+            'total_jasa_manajemen' => (float)$reg['total_jasa_manajemen'] + $add['jasa_manajemen'],
+            'total_jasa_dokter' => (float)$reg['total_jasa_dokter'] + $add['jasa_dokter'],
+            'total_jasa_petugas' => (float)$reg['total_jasa_petugas'] + $add['jasa_petugas'],
+            'total_kso' => (float)$reg['total_kso'] + $add['kso'],
+            'total_bhp' => (float)$reg['total_bhp'] + $add['bhp'],
+        ]);
+
+        // Order lingkungan: samakan biaya & catatan di modul Kesehatan Lingkungan
+        if ($reg['kategori_pemeriksaan'] === 'lingkungan' && $this->db->table_exists('env_orders')) {
+            $env = $this->db->get_where('env_orders', ['pendaftaran_id' => (int)$id])->row_array();
+            if ($env) {
+                $this->db->where('id', $env['id'])->update('env_orders', [
+                    'biaya_pengujian' => $total,
+                    'notes' => trim(($env['notes'] ?? '') . "\nTambahan (" . date('d/m/Y H:i') . '): ' . implode(', ', $names)),
+                ]);
+            }
+        }
+
+        $this->db->insert($this->table_log, [
+            'pendaftaran_id' => (int)$id,
+            'action' => 'TAMBAH_PEMERIKSAAN',
+            'description' => sprintf('Tambah %d pemeriksaan (%s). Total tagihan: Rp %s -> Rp %s',
+                count($items), implode(', ', $names),
+                number_format((float)$reg['total_biaya'], 0, ',', '.'), number_format($total, 0, ',', '.')),
+            'user_id' => $userId,
+            'user_name' => $userName,
+        ]);
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === FALSE) {
+            return ['status' => false, 'message' => 'Gagal menambahkan pemeriksaan.'];
+        }
+        return ['status' => true, 'message' => count($items) . ' pemeriksaan ditambahkan. Total tagihan kini Rp ' . number_format($total, 0, ',', '.') . '.', 'total_biaya' => $total];
+    }
+
+    /**
+     * Simpan Pendaftaran & Order LIS Baru (Alur 1)
+     */
+    public function save_pendaftaran($data, $items, $userId = null, $userName = 'Petugas') {
+        $this->db->trans_start();
+
+        // 1. Pastikan Kode Otomatis Terisi
+        if (empty($data['nomor_registrasi'])) {
+            $data['nomor_registrasi'] = $this->generate_reg_number();
+        }
+        if (empty($data['nomor_billing'])) {
+            $data['nomor_billing'] = $this->generate_billing_number();
+        }
+        if (empty($data['barcode_sampel'])) {
+            $data['barcode_sampel'] = $this->generate_sample_barcode();
+        }
+
+        $data['tanggal_pendaftaran'] = !empty($data['tanggal_pendaftaran']) ? $data['tanggal_pendaftaran'] : date('Y-m-d');
+        $data['jam_pendaftaran'] = !empty($data['jam_pendaftaran']) ? $data['jam_pendaftaran'] : date('H:i:s');
+        $data['created_by'] = $userId;
+
+        // 2. Insert ke tabel pendaftaran
+        $this->db->insert($this->table, $data);
+        $pendaftaranId = $this->db->insert_id();
+
+        // 3. Insert items pemeriksaan
+        $this->_insert_items($pendaftaranId, $items);
 
         // 4. Catat Log Audit Trail
         $logDesc = sprintf(
@@ -471,7 +564,33 @@ class Pendaftaran_model extends CI_Model {
             return ['status' => false, 'message' => 'Data pendaftaran tidak ditemukan.'];
         }
 
+        if ($pendaftaran['kategori_pemeriksaan'] === 'lingkungan') {
+            return ['status' => false, 'message' => 'Pendaftaran uji lingkungan dikerjakan melalui menu Kesehatan Lingkungan.'];
+        }
+        if (!in_array($pendaftaran['status_pembayaran'], ['PAID', 'GUARANTEED'], true)) {
+            return ['status' => false, 'message' => 'Order belum dibayar/dijamin di kasir. Hasil tidak dapat diinput.'];
+        }
+        if (!in_array($pendaftaran['status_order'], ['sampling', 'processing', 'validasi'], true)) {
+            $msg = $pendaftaran['status_order'] === 'completed'
+                ? 'Hasil sudah final (seluruh verifikasi lengkap) dan terkunci. Perubahan tidak diperbolehkan.'
+                : 'Spesimen belum diterima lab (status: ' . strtoupper($pendaftaran['status_order']) . ').';
+            return ['status' => false, 'message' => $msg];
+        }
+
+        // Hasil tidak pernah boleh langsung 'completed': hanya rantai verifikasi berjenjang yang menyelesaikan order.
+        if (($metadata['status_order'] ?? '') === 'completed') {
+            $metadata['status_order'] = 'validasi';
+        }
+
         $this->db->trans_start();
+
+        // Hasil direvisi saat verifikasi sudah berjalan -> semua tanda tangan dibatalkan, verifikasi diulang dari awal.
+        $resetApproval = false;
+        $this->load->model('approval_model');
+        if ($this->approval_model->count_approved($pendaftaranId) > 0) {
+            $this->approval_model->reset_order_approvals($pendaftaranId);
+            $resetApproval = true;
+        }
 
         $statusPengujian = ($metadata['status_order'] === 'completed') ? 'completed' : (($metadata['status_order'] === 'validasi') ? 'validasi' : 'processing');
         $now = date('Y-m-d H:i:s');
@@ -549,10 +668,11 @@ class Pendaftaran_model extends CI_Model {
         }
 
         $msg = 'Hasil pemeriksaan laboratorium tersimpan sebagai Draft / Sedang Dikerjakan (Processing).';
-        if ($newStatusOrder === 'completed') {
-            $msg = 'Hasil pemeriksaan laboratorium berhasil divalidasi dan berstatus Selesai (Completed).';
-        } elseif ($newStatusOrder === 'validasi') {
-            $msg = 'Hasil laboratorium berhasil disimpan dan dikirim ke antrean Validasi & Otorisasi Dokter Sp.PK.';
+        if ($newStatusOrder === 'validasi') {
+            $msg = 'Hasil laboratorium berhasil disimpan dan dikirim ke antrean Validasi & Otorisasi (verifikasi berjenjang).';
+        }
+        if ($resetApproval) {
+            $msg .= ' Tanda tangan verifikasi sebelumnya dibatalkan karena hasil direvisi; verifikasi diulang dari awal.';
         }
 
         return [
@@ -604,7 +724,7 @@ class Pendaftaran_model extends CI_Model {
         ];
 
         // Jika status_order masih registered, otomatis siap antrian sampling
-        if ($pendaftaran['status_order'] === 'registered') {
+        if ($pendaftaran['status_order'] === 'registered' && ($pendaftaran['kategori_pemeriksaan'] ?? '') !== 'lingkungan') {
             $updateData['status_order'] = 'sampling';
         }
 
@@ -684,7 +804,7 @@ class Pendaftaran_model extends CI_Model {
             'status_penagihan' => 'belum_ditagih'
         ];
 
-        if ($pendaftaran['status_order'] === 'registered') {
+        if ($pendaftaran['status_order'] === 'registered' && ($pendaftaran['kategori_pemeriksaan'] ?? '') !== 'lingkungan') {
             $updateData['status_order'] = 'sampling';
         }
 
@@ -731,6 +851,17 @@ class Pendaftaran_model extends CI_Model {
             return false;
         }
 
+        if ($statusOrder === 'completed') {
+            return false; // hanya rantai verifikasi berjenjang yang boleh menyelesaikan order
+        }
+        if (in_array($pendaftaran['status_order'], ['completed', 'cancelled'], true)) {
+            return false;
+        }
+        if (in_array($statusOrder, ['sampling', 'processing', 'validasi'], true)
+            && !in_array($pendaftaran['status_pembayaran'], ['PAID', 'GUARANTEED'], true)) {
+            return false; // belum dibayar/dijamin
+        }
+
         $updateData = ['status_order' => $statusOrder];
         if (in_array($statusOrder, ['sampling', 'processing']) && empty($pendaftaran['waktu_sampling'])) {
             $updateData['waktu_sampling'] = date('Y-m-d H:i:s');
@@ -762,6 +893,10 @@ class Pendaftaran_model extends CI_Model {
         if (!$pendaftaran) {
             return false;
         }
+        // Transaksi yang sudah masuk closing kasir tidak boleh dibatalkan
+        if (!empty($pendaftaran['closing_id'])) {
+            return false;
+        }
 
         $this->db->trans_start();
 
@@ -786,50 +921,39 @@ class Pendaftaran_model extends CI_Model {
     /**
      * Hitung Metrik Ringkasan Pendaftaran
      */
-    public function get_summary_stats() {
+    public function get_summary_stats($lingkungan = false) {
         $today = date('Y-m-d');
+        $awal = $today . ' 00:00:00';
+        $akhir = date('Y-m-d', strtotime('+1 day')) . ' 00:00:00';
 
-        // Total hari ini
-        $totalHariIni = $this->db->where('tanggal_pendaftaran', $today)->count_all_results($this->table);
-
-        // Pasien Mandiri
-        $mandiri = $this->db->where('tipe_pasien', 'mandiri')->count_all_results($this->table);
-
-        // Rujukan Faskes
-        $rujukan = $this->db->where('tipe_pasien', 'rujukan_faskes')->count_all_results($this->table);
-
-        // Sampel Lingkungan / Perusahaan
-        $perusahaan = $this->db->where('tipe_pasien', 'perusahaan_lingkungan')->count_all_results($this->table);
-
-        // Menunggu Bayar (UNPAID)
-        $unpaid = $this->db->where('status_pembayaran', 'UNPAID')->count_all_results($this->table);
-
-        // Lunas Kasir (PAID)
-        $paid = $this->db->where('status_pembayaran', 'PAID')->count_all_results($this->table);
-
-        // Dijamin Mitra PKS (GUARANTEED)
-        $guaranteed = $this->db->where('status_pembayaran', 'GUARANTEED')->count_all_results($this->table);
-
-        // Siap / Sedang Sampling
-        $sampling = $this->db->where_in('status_order', ['sampling', 'processing'])->count_all_results($this->table);
-
-        // Total Pendapatan Kasir Hari Ini
-        $this->db->select_sum('nominal_bayar');
-        $this->db->where('status_pembayaran', 'PAID');
-        $this->db->where('DATE(waktu_bayar)', $today);
-        $sumPaid = $this->db->get($this->table)->row_array();
-        $pendapatanHariIni = (float)($sumPaid['nominal_bayar'] ?? 0);
+        // Satu kali scan untuk semua penghitung (sebelumnya 9 query terpisah) pada modul yang dibuka.
+        $this->db->select("SUM(tanggal_pendaftaran = " . $this->db->escape($today) . ") AS total_hari_ini,
+            SUM(tipe_pasien = 'mandiri') AS mandiri,
+            SUM(tipe_pasien = 'rujukan_faskes') AS rujukan,
+            SUM(tipe_pasien = 'perusahaan_lingkungan') AS perusahaan,
+            SUM(status_pembayaran = 'UNPAID') AS unpaid,
+            SUM(status_pembayaran = 'PAID') AS paid,
+            SUM(status_pembayaran = 'GUARANTEED') AS guaranteed,
+            SUM(status_order IN ('sampling','processing')) AS sampling,
+            COALESCE(SUM(CASE WHEN status_pembayaran = 'PAID' AND waktu_bayar >= " . $this->db->escape($awal) . " AND waktu_bayar < " . $this->db->escape($akhir) . " THEN nominal_bayar END), 0) AS pendapatan", false);
+        $this->db->from($this->table);
+        if ($lingkungan) {
+            $this->db->where('kategori_pemeriksaan', 'lingkungan');
+        } else {
+            $this->db->where('kategori_pemeriksaan !=', 'lingkungan');
+        }
+        $r = $this->db->get()->row_array();
 
         return [
-            'total_hari_ini' => $totalHariIni,
-            'mandiri' => $mandiri,
-            'rujukan' => $rujukan,
-            'perusahaan' => $perusahaan,
-            'unpaid' => $unpaid,
-            'paid' => $paid,
-            'guaranteed' => $guaranteed,
-            'sampling' => $sampling,
-            'pendapatan_hari_ini' => $pendapatanHariIni
+            'total_hari_ini' => (int)$r['total_hari_ini'],
+            'mandiri' => (int)$r['mandiri'],
+            'rujukan' => (int)$r['rujukan'],
+            'perusahaan' => (int)$r['perusahaan'],
+            'unpaid' => (int)$r['unpaid'],
+            'paid' => (int)$r['paid'],
+            'guaranteed' => (int)$r['guaranteed'],
+            'sampling' => (int)$r['sampling'],
+            'pendapatan_hari_ini' => (float)$r['pendapatan']
         ];
     }
 
@@ -895,9 +1019,33 @@ class Pendaftaran_model extends CI_Model {
             $tpl['items'] = $this->db->get()->result_array();
         }
 
+        // 3. Parameter Uji Lingkungan (hanya yang sudah bertarif pada kelompok tarif ini)
+        $envParams = [];
+        $envPackages = [];
+        $envTypes = [];
+        if ($this->db->table_exists('env_parameters')) {
+            $this->load->model('lab_model');
+            foreach ($this->lab_model->get_env_parameters_with_tariff($tariffGroup) as $row) {
+                if ((int)$row['has_tariff'] === 1 && (float)$row['total_tarif'] > 0) {
+                    $envParams[] = $row;
+                }
+            }
+            $envTypes = $this->lab_model->get_env_sample_types();
+            if ($this->db->table_exists('env_packages')) {
+                foreach ($this->lab_model->get_env_packages_with_tariff($tariffGroup) as $pk) {
+                    if ((int)$pk['has_tariff'] === 1 && (float)$pk['total_tarif'] > 0 && !empty($pk['items'])) {
+                        $envPackages[] = $pk;
+                    }
+                }
+            }
+        }
+
         return [
             'parameters' => $params,
-            'templates' => $templates
+            'templates' => $templates,
+            'env_parameters' => $envParams,
+            'env_packages' => $envPackages,
+            'env_sample_types' => $envTypes
         ];
     }
 }

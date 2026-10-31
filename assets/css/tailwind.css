@@ -1677,10 +1677,6 @@ i[data-lucide],
   left: 0.75rem;
 }
 
-.left-3\.5 {
-  left: 0.875rem;
-}
-
 .left-full {
   left: 100%;
 }
@@ -1745,12 +1741,24 @@ i[data-lucide],
   z-index: 50;
 }
 
+.col-span-12 {
+  grid-column: span 12 / span 12;
+}
+
 .col-span-2 {
   grid-column: span 2 / span 2;
 }
 
 .col-span-3 {
   grid-column: span 3 / span 3;
+}
+
+.col-span-4 {
+  grid-column: span 4 / span 4;
+}
+
+.col-span-8 {
+  grid-column: span 8 / span 8;
 }
 
 .mx-auto {
@@ -2289,8 +2297,8 @@ i[data-lucide],
   min-width: 150px;
 }
 
-.min-w-\[155px\] {
-  min-width: 155px;
+.min-w-\[170px\] {
+  min-width: 170px;
 }
 
 .min-w-\[180px\] {
@@ -2514,6 +2522,10 @@ i[data-lucide],
   grid-template-columns: repeat(1, minmax(0, 1fr));
 }
 
+.grid-cols-12 {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
 .grid-cols-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2620,6 +2632,10 @@ i[data-lucide],
   row-gap: 0.125rem;
 }
 
+.gap-y-1 {
+  row-gap: 0.25rem;
+}
+
 .gap-y-3 {
   row-gap: 0.75rem;
 }
@@ -2698,6 +2714,10 @@ i[data-lucide],
 .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
   --tw-divide-opacity: 1;
   border-color: rgb(226 232 240 / var(--tw-divide-opacity, 1));
+}
+
+.self-start {
+  align-self: flex-start;
 }
 
 .self-center {
@@ -2922,10 +2942,6 @@ i[data-lucide],
   border-color: rgb(16 185 129 / var(--tw-border-opacity, 1));
 }
 
-.border-emerald-500\/40 {
-  border-color: rgb(16 185 129 / 0.4);
-}
-
 .border-emerald-600 {
   --tw-border-opacity: 1;
   border-color: rgb(5 150 105 / var(--tw-border-opacity, 1));
@@ -2933,10 +2949,6 @@ i[data-lucide],
 
 .border-emerald-600\/40 {
   border-color: rgb(5 150 105 / 0.4);
-}
-
-.border-emerald-600\/50 {
-  border-color: rgb(5 150 105 / 0.5);
 }
 
 .border-emerald-700 {
@@ -3083,15 +3095,6 @@ i[data-lucide],
 .border-slate-500 {
   --tw-border-opacity: 1;
   border-color: rgb(100 116 139 / var(--tw-border-opacity, 1));
-}
-
-.border-slate-700 {
-  --tw-border-opacity: 1;
-  border-color: rgb(51 65 85 / var(--tw-border-opacity, 1));
-}
-
-.border-slate-700\/60 {
-  border-color: rgb(51 65 85 / 0.6);
 }
 
 .border-slate-700\/70 {
@@ -3373,17 +3376,9 @@ i[data-lucide],
   background-color: rgb(16 185 129 / 0.2);
 }
 
-.bg-emerald-500\/25 {
-  background-color: rgb(16 185 129 / 0.25);
-}
-
 .bg-emerald-600 {
   --tw-bg-opacity: 1;
   background-color: rgb(5 150 105 / var(--tw-bg-opacity, 1));
-}
-
-.bg-emerald-600\/30 {
-  background-color: rgb(5 150 105 / 0.3);
 }
 
 .bg-emerald-700 {
@@ -3406,10 +3401,6 @@ i[data-lucide],
 
 .bg-emerald-950\/60 {
   background-color: rgb(2 44 34 / 0.6);
-}
-
-.bg-emerald-950\/80 {
-  background-color: rgb(2 44 34 / 0.8);
 }
 
 .bg-indigo-50 {
@@ -3521,6 +3512,11 @@ i[data-lucide],
   background-color: rgb(240 249 255 / 0.5);
 }
 
+.bg-sky-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(2 132 199 / var(--tw-bg-opacity, 1));
+}
+
 .bg-sky-700 {
   --tw-bg-opacity: 1;
   background-color: rgb(3 105 161 / var(--tw-bg-opacity, 1));
@@ -3595,10 +3591,6 @@ i[data-lucide],
   background-color: rgb(248 250 252 / 0.7);
 }
 
-.bg-slate-50\/80 {
-  background-color: rgb(248 250 252 / 0.8);
-}
-
 .bg-slate-50\/90 {
   background-color: rgb(248 250 252 / 0.9);
 }
@@ -3611,10 +3603,6 @@ i[data-lucide],
 .bg-slate-700 {
   --tw-bg-opacity: 1;
   background-color: rgb(51 65 85 / var(--tw-bg-opacity, 1));
-}
-
-.bg-slate-800\/90 {
-  background-color: rgb(30 41 59 / 0.9);
 }
 
 .bg-slate-900 {
@@ -3660,6 +3648,10 @@ i[data-lucide],
 
 .bg-teal-50\/20 {
   background-color: rgb(240 253 250 / 0.2);
+}
+
+.bg-teal-50\/40 {
+  background-color: rgb(240 253 250 / 0.4);
 }
 
 .bg-teal-50\/50 {
@@ -3959,6 +3951,10 @@ i[data-lucide],
 
 .to-emerald-700 {
   --tw-gradient-to: #047857 var(--tw-gradient-to-position);
+}
+
+.to-emerald-900 {
+  --tw-gradient-to: #064e3b var(--tw-gradient-to-position);
 }
 
 .to-emerald-950 {
@@ -4578,11 +4574,6 @@ i[data-lucide],
 .text-emerald-300 {
   --tw-text-opacity: 1;
   color: rgb(110 231 183 / var(--tw-text-opacity, 1));
-}
-
-.text-emerald-400 {
-  --tw-text-opacity: 1;
-  color: rgb(52 211 153 / var(--tw-text-opacity, 1));
 }
 
 .text-emerald-400\/80 {
@@ -5795,6 +5786,11 @@ table.dataTable tbody td {
   border-color: rgb(245 158 11 / var(--tw-border-opacity, 1));
 }
 
+.hover\:border-emerald-200:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(167 243 208 / var(--tw-border-opacity, 1));
+}
+
 .hover\:border-emerald-300:hover {
   --tw-border-opacity: 1;
   border-color: rgb(110 231 183 / var(--tw-border-opacity, 1));
@@ -5972,6 +5968,11 @@ table.dataTable tbody td {
   background-color: rgb(244 63 94 / var(--tw-bg-opacity, 1));
 }
 
+.hover\:bg-rose-600:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(225 29 72 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-rose-700:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(190 18 60 / var(--tw-bg-opacity, 1));
@@ -6003,6 +6004,11 @@ table.dataTable tbody td {
 
 .hover\:bg-sky-50\/30:hover {
   background-color: rgb(240 249 255 / 0.3);
+}
+
+.hover\:bg-sky-700:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(3 105 161 / var(--tw-bg-opacity, 1));
 }
 
 .hover\:bg-sky-800:hover {
@@ -6040,10 +6046,6 @@ table.dataTable tbody td {
 
 .hover\:bg-slate-50\/70:hover {
   background-color: rgb(248 250 252 / 0.7);
-}
-
-.hover\:bg-slate-50\/80:hover {
-  background-color: rgb(248 250 252 / 0.8);
 }
 
 .hover\:bg-slate-700:hover {
@@ -6378,16 +6380,16 @@ table.dataTable tbody td {
     grid-column: span 4 / span 4;
   }
 
+  .sm\:col-span-7 {
+    grid-column: span 7 / span 7;
+  }
+
   .sm\:ml-auto {
     margin-left: auto;
   }
 
   .sm\:block {
     display: block;
-  }
-
-  .sm\:inline-block {
-    display: inline-block;
   }
 
   .sm\:inline {
@@ -6424,6 +6426,10 @@ table.dataTable tbody td {
 
   .sm\:grid-cols-4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .sm\:grid-cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .sm\:flex-row {
@@ -6630,8 +6636,20 @@ table.dataTable tbody td {
 }
 
 @media (min-width: 1024px) {
+  .lg\:sticky {
+    position: sticky;
+  }
+
+  .lg\:top-0 {
+    top: 0px;
+  }
+
   .lg\:col-span-2 {
     grid-column: span 2 / span 2;
+  }
+
+  .lg\:col-span-4 {
+    grid-column: span 4 / span 4;
   }
 
   .lg\:col-span-5 {
@@ -6642,16 +6660,16 @@ table.dataTable tbody td {
     grid-column: span 7 / span 7;
   }
 
+  .lg\:col-span-8 {
+    grid-column: span 8 / span 8;
+  }
+
   .lg\:flex {
     display: flex;
   }
 
   .lg\:hidden {
     display: none;
-  }
-
-  .lg\:w-auto {
-    width: auto;
   }
 
   .lg\:translate-x-0 {

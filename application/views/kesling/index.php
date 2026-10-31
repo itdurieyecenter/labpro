@@ -150,11 +150,17 @@
                         <option value="registered">Terdaftar</option>
                         <option value="sampling">Sampling</option>
                         <option value="testing">Pengujian</option>
-                        <option value="validasi">Validasi</option>
-                        <option value="completed">Selesai</option>
+                        <option value="validasi" disabled>Validasi (otomatis dari entri hasil)</option>
+                        <option value="completed" disabled>Selesai (setelah verifikasi lengkap)</option>
                         <option value="cancelled">Batal</option>
                     </select>
                 </div>
+            </div>
+            <div class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider border-b border-slate-200 pb-1 pt-2">Biaya &amp; Tagihan</div>
+            <div>
+                <label class="lis-form-label">Biaya Pengujian (Rp)</label>
+                <input type="number" min="0" step="1000" name="biaya_pengujian" id="o-biaya" class="lis-form-control font-mono font-bold" placeholder="0">
+                <p id="o-biaya-hint" class="text-[11px] text-slate-500 mt-1">Isi untuk menerbitkan tagihan ke Antrian Kasir. Kosongkan bila belum ada biaya.</p>
             </div>
             <div><label class="lis-form-label">Catatan</label><textarea name="notes" id="o-notes" rows="2" class="lis-form-control"></textarea></div>
 
@@ -175,7 +181,8 @@
         save:   '<?= site_url('kesling/save_order') ?>',
         hapus:  '<?= site_url('kesling/delete_order') ?>',
         hasil:  '<?= site_url('kesling/hasil') ?>',
-        cetak:  '<?= site_url('kesling/cetak_lhu') ?>'
+        cetak:  '<?= site_url('kesling/cetak_lhu') ?>',
+        label:  '<?= site_url('kesling/cetak_barcode') ?>'
     };
     const G_ST = {
         registered:['bg-sky-50 text-sky-700 border-sky-200','Terdaftar'],
@@ -188,6 +195,8 @@
 
     let tOrder = null;
     $(function () {
+        // Dari formulir Pendaftaran: ?baru=1 langsung membuka form order baru
+        if (new URLSearchParams(location.search).get('baru') === '1') { setTimeout(openOrderModal, 300); }
         tOrder = $('#t-order').DataTable({
             processing: true, serverSide: true, order: [],
             ajax: { url: AU.fetch, type: 'GET', data: d => { d.status = $('#f-status').val() || 'all'; } },
@@ -210,10 +219,13 @@
                     const g = G_ST[d] || ['bg-slate-100 text-slate-500 border-slate-200', d];
                     return '<span class="px-2 py-0.5 rounded text-[10px] font-bold border ' + g[0] + '">' + g[1] + '</span>';
                 }},
-                { data: 'id', orderable:false, className:'text-center py-3', render:d=>{
+                { data: 'id', orderable:false, className:'text-center py-3', render:(d,t,row)=>{
                     let b = '<div class="flex items-center justify-center gap-1.5">';
                     b += '<a href="' + AU.hasil + '/' + d + '" class="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700" title="Entri Hasil"><i data-lucide="flask-conical" class="w-3.5 h-3.5"></i></a>';
-                    b += '<a href="' + AU.cetak + '/' + d + '" target="_blank" class="p-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700" title="Cetak LHU"><i data-lucide="printer" class="w-3.5 h-3.5"></i></a>';
+                    b += '<a href="' + AU.label + '/' + d + '" target="_blank" class="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700" title="Cetak Label Barcode Wadah"><i data-lucide="barcode" class="w-3.5 h-3.5"></i></a>';
+                    b += (row.status === 'completed')
+                        ? '<a href="' + AU.cetak + '/' + d + '" target="_blank" class="p-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700" title="Cetak LHU (sah)"><i data-lucide="printer" class="w-3.5 h-3.5"></i></a>'
+                        : '<span class="p-1.5 rounded-lg bg-slate-100 text-slate-400 cursor-not-allowed" title="LHU belum sah - verifikasi berjenjang belum selesai"><i data-lucide="lock" class="w-3.5 h-3.5"></i></span>';
                     <?php if ($can_edit): ?>b += '<button type="button" onclick="editOrder(' + d + ')" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700" title="Ubah"><i data-lucide="edit" class="w-3.5 h-3.5"></i></button>';<?php endif; ?>
                     <?php if ($can_delete): ?>b += '<button type="button" onclick="hapusOrder(' + d + ')" class="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700" title="Hapus"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>';<?php endif; ?>
                     return b + '</div>';
@@ -252,6 +264,8 @@
         document.getElementById('o-id').value = '';
         document.getElementById('o-status').value = 'registered';
         document.getElementById('m-order-title').textContent = 'Order Baru';
+        document.getElementById('o-biaya').readOnly = false;
+        document.getElementById('o-biaya-hint').textContent = 'Isi untuk menerbitkan tagihan ke Antrian Kasir. Kosongkan bila belum ada biaya.';
         filterStandar();
         showModal('m-order');
     }
@@ -268,6 +282,12 @@
             set('o-sby',d.sampling_by); set('o-sat', d.sampling_at ? d.sampling_at.replace(' ','T').slice(0,16) : '');
             set('o-rby',d.received_by); set('o-rat', d.received_at ? d.received_at.replace(' ','T').slice(0,16) : '');
             set('o-as',d.analysis_start); set('o-ae',d.analysis_end); set('o-status',d.status); set('o-notes',d.notes);
+            set('o-biaya', parseFloat(d.biaya_pengujian) > 0 ? Math.round(d.biaya_pengujian) : '');
+            const locked = d.pendaftaran_id && d.tagihan_status && d.tagihan_status !== 'UNPAID';
+            document.getElementById('o-biaya').readOnly = !!locked;
+            document.getElementById('o-biaya-hint').textContent = d.pendaftaran_id
+                ? 'Tagihan ' + d.tagihan_reg + ' (' + d.tagihan_status + ')' + (locked ? ' - biaya terkunci karena sudah diproses kasir.' : ' - perubahan biaya ikut memperbarui tagihan.')
+                : 'Isi untuk menerbitkan tagihan ke Antrian Kasir. Kosongkan bila belum ada biaya.';
             document.getElementById('o-nomor-hint').textContent = 'No. LHU: ' + (d.order_number || '-');
             document.getElementById('m-order-title').textContent = 'Ubah ' + (d.order_number || 'Order');
             showModal('m-order');

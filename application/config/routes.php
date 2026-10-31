@@ -52,7 +52,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $route['default_controller'] = 'auth/login';
 $route['login'] = 'auth/login';
 $route['logout'] = 'auth/logout';
-// Verifikasi keaslian LHU publik (tanpa login): /verifikasi/{id}/{token}
+// Verifikasi keaslian LHU publik (tanpa login): /verifikasi/{id}/{token} & /verifikasi/kesling/{id}/{token}
+$route['verifikasi/kesling/(:num)/(:any)'] = 'verifikasi/kesling/$1/$2';
 $route['verifikasi/(:num)/(:any)'] = 'verifikasi/cek/$1/$2';
 $route['dashboard'] = 'dashboard';
 $route['pendaftaran'] = 'pendaftaran/index';
@@ -102,5 +103,7 @@ $route['users'] = 'users/index';
 $route['users/(:any)'] = 'users/$1';
 $route['client'] = 'client/index';
 $route['client/(:any)'] = 'client/$1';
+$route['kesling'] = 'kesling/index';
+$route['kesling/(:any)'] = 'kesling/$1';
 $route['404_override'] = 'errors_handler/not_found';
 $route['translate_uri_dashes'] = FALSE;

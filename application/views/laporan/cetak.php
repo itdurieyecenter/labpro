@@ -63,7 +63,7 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-200">
-            <?php $no = 1; foreach ($registrations as $r): ?>
+            <?php $no = 1; foreach ($reg_rows as $r): ?>
                 <tr>
                     <td class="p-2 border-r border-slate-200 text-center font-mono text-[10px]"><?= $no++ ?></td>
                     <td class="p-2 border-r border-slate-200 text-[10px]"><?= date('d/m/Y', strtotime($r['tanggal_pendaftaran'])) ?></td>
@@ -75,6 +75,9 @@
                     <td class="p-2 text-center text-[10px] uppercase"><?= $r['status_order'] ?></td>
                 </tr>
             <?php endforeach; ?>
+            <?php if ($tot_registrasi > $max_rows_cetak): ?>
+                <tr><td colspan="8" class="p-2 text-center text-[10px] italic text-slate-500">Rincian dipotong <?= number_format($max_rows_cetak) ?> baris pertama dari <?= number_format($tot_registrasi) ?> transaksi. Total di atas mencakup seluruh transaksi; persempit rentang tanggal untuk rincian lengkap.</td></tr>
+            <?php endif; ?>
         </tbody>
     </table>
 

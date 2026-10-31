@@ -3,6 +3,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Laporan extends CI_Controller {
 
+    const MAX_ROWS_TABEL = 300;
+    const MAX_ROWS_CETAK = 5000;
+
     public function __construct() {
         parent::__construct();
         $this->rbac_lib->require_login();
@@ -33,39 +36,37 @@ class Laporan extends CI_Controller {
         $data['end_date'] = $endDate;
         $data['tipe_pasien'] = $tipePasien;
 
-        // Base Query Range
+        // 1. Rekapitulasi kunjungan: dihitung di SQL (tidak memuat seluruh baris ke memori PHP)
+        $this->db->select("COUNT(*) AS n, COALESCE(SUM(total_biaya),0) AS omset,
+            COALESCE(SUM(CASE WHEN status_pembayaran='PAID' THEN total_biaya END),0) AS paid,
+            COALESCE(SUM(CASE WHEN status_pembayaran='GUARANTEED' THEN total_biaya END),0) AS piutang,
+            SUM(tipe_pasien='mandiri') AS c_mandiri, SUM(tipe_pasien='rujukan_faskes') AS c_rujukan, SUM(tipe_pasien='perusahaan_lingkungan') AS c_perusahaan", false);
         $this->db->from('pendaftaran');
         $this->db->where('tanggal_pendaftaran >=', $startDate);
         $this->db->where('tanggal_pendaftaran <=', $endDate);
         if ($tipePasien !== 'all') {
             $this->db->where('tipe_pasien', $tipePasien);
         }
-        $data['registrations'] = $this->db->order_by('tanggal_pendaftaran', 'DESC')->get()->result_array();
+        $agg = $this->db->get()->row_array();
 
-        // 1. Rekapitulasi Kunjungan
-        $totRegistrasi = count($data['registrations']);
-        $totOmset = 0;
-        $totPaid = 0;
-        $totPiutang = 0;
-        $tipeCounts = ['mandiri' => 0, 'rujukan_faskes' => 0, 'perusahaan_lingkungan' => 0];
+        $data['tot_registrasi'] = (int)$agg['n'];
+        $data['tot_omset'] = (float)$agg['omset'];
+        $data['tot_paid'] = (float)$agg['paid'];
+        $data['tot_piutang'] = (float)$agg['piutang'];
+        $data['tipe_counts'] = [
+            'mandiri' => (int)$agg['c_mandiri'],
+            'rujukan_faskes' => (int)$agg['c_rujukan'],
+            'perusahaan_lingkungan' => (int)$agg['c_perusahaan'],
+        ];
 
-        foreach ($data['registrations'] as $reg) {
-            $totOmset += (float)$reg['total_biaya'];
-            if ($reg['status_pembayaran'] === 'PAID') {
-                $totPaid += (float)$reg['total_biaya'];
-            } elseif ($reg['status_pembayaran'] === 'GUARANTEED') {
-                $totPiutang += (float)$reg['total_biaya'];
-            }
-            if (isset($tipeCounts[$reg['tipe_pasien']])) {
-                $tipeCounts[$reg['tipe_pasien']]++;
-            }
+        // Tabel rincian dibatasi agar halaman/memori tetap ringan; rekap lengkap ada di kartu & tombol cetak
+        $this->db->from('pendaftaran');
+        $this->db->where('tanggal_pendaftaran >=', $startDate);
+        $this->db->where('tanggal_pendaftaran <=', $endDate);
+        if ($tipePasien !== 'all') {
+            $this->db->where('tipe_pasien', $tipePasien);
         }
-
-        $data['tot_registrasi'] = $totRegistrasi;
-        $data['tot_omset'] = $totOmset;
-        $data['tot_paid'] = $totPaid;
-        $data['tot_piutang'] = $totPiutang;
-        $data['tipe_counts'] = $tipeCounts;
+        $data['registrations'] = $this->db->order_by('tanggal_pendaftaran', 'DESC')->order_by('id', 'DESC')->limit(self::MAX_ROWS_TABEL)->get()->result_array();
 
         // 2. Rekapitulasi Pembayaran per Akun Bayar Kas/Bank
         $data['rekap_kasir'] = $this->db->select('COALESCE(ab.nama_bayar, p.metode_pembayaran, "Kas Tunai") as akun_nama, COUNT(p.id) as jumlah_trx, SUM(p.total_biaya) as total_nominal')
@@ -120,26 +121,62 @@ class Laporan extends CI_Controller {
         $endDate = $this->input->get('end_date', TRUE) ?: date('Y-m-d');
         $tipePasien = $this->input->get('tipe_pasien', TRUE) ?: 'all';
 
+        $this->db->select("COALESCE(SUM(total_biaya),0) AS omset,
+            COALESCE(SUM(CASE WHEN status_pembayaran='PAID' THEN total_biaya END),0) AS paid,
+            COALESCE(SUM(CASE WHEN status_pembayaran='GUARANTEED' THEN total_biaya END),0) AS piutang", false);
         $this->db->from('pendaftaran');
         $this->db->where('tanggal_pendaftaran >=', $startDate);
         $this->db->where('tanggal_pendaftaran <=', $endDate);
         if ($tipePasien !== 'all') {
             $this->db->where('tipe_pasien', $tipePasien);
         }
-        $data['registrations'] = $this->db->order_by('tanggal_pendaftaran', 'ASC')->get()->result_array();
+        $agg = $this->db->get()->row_array();
+        $data['tot_omset'] = (float)$agg['omset'];
+        $data['tot_paid'] = (float)$agg['paid'];
+        $data['tot_piutang'] = (float)$agg['piutang'];
         $data['start_date'] = $startDate;
         $data['end_date'] = $endDate;
 
-        $totOmset = 0; $totPaid = 0; $totPiutang = 0;
-        foreach ($data['registrations'] as $r) {
-            $totOmset += (float)$r['total_biaya'];
-            if ($r['status_pembayaran'] === 'PAID') $totPaid += (float)$r['total_biaya'];
-            elseif ($r['status_pembayaran'] === 'GUARANTEED') $totPiutang += (float)$r['total_biaya'];
+        // Baris diambil bertahap (keyset, 1000/baris-chunk) supaya cetak ratusan ribu baris tidak menghabiskan RAM
+        $db = $this->db;
+        $data['max_rows_cetak'] = self::MAX_ROWS_CETAK;
+        $db->where('tanggal_pendaftaran >=', $startDate)->where('tanggal_pendaftaran <=', $endDate);
+        if ($tipePasien !== 'all') {
+            $db->where('tipe_pasien', $tipePasien);
         }
-
-        $data['tot_omset'] = $totOmset;
-        $data['tot_paid'] = $totPaid;
-        $data['tot_piutang'] = $totPiutang;
+        $data['tot_registrasi'] = (int)$db->count_all_results('pendaftaran');
+        $data['reg_rows'] = (function () use ($db, $startDate, $endDate, $tipePasien) {
+            $lastDate = null;
+            $lastId = 0;
+            $sent = 0;
+            while ($sent < self::MAX_ROWS_CETAK) {
+                $db->from('pendaftaran');
+                $db->where('tanggal_pendaftaran >=', $startDate);
+                $db->where('tanggal_pendaftaran <=', $endDate);
+                if ($tipePasien !== 'all') {
+                    $db->where('tipe_pasien', $tipePasien);
+                }
+                if ($lastDate !== null) {
+                    $db->group_start()->where('tanggal_pendaftaran >', $lastDate)
+                        ->or_group_start()->where('tanggal_pendaftaran', $lastDate)->where('id >', $lastId)->group_end()
+                        ->group_end();
+                }
+                $rows = $db->order_by('tanggal_pendaftaran', 'ASC')->order_by('id', 'ASC')->limit(1000)->get()->result_array();
+                if (!$rows) {
+                    return;
+                }
+                foreach ($rows as $r) {
+                    if ($sent++ >= self::MAX_ROWS_CETAK) {
+                        return;
+                    }
+                    yield $r;
+                }
+                $last = end($rows);
+                $lastDate = $last['tanggal_pendaftaran'];
+                $lastId = (int)$last['id'];
+                unset($rows);
+            }
+        })();
 
         $this->load->view('laporan/cetak', $data);
     }

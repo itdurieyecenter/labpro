@@ -31,11 +31,12 @@ class Hasil_lab extends CI_Controller {
 
         // Summary khusus analis
         $today = date('Y-m-d');
+        $klinis = ['kategori_pemeriksaan !=' => 'lingkungan'];
         $data['stats'] = [
-            'total_processing' => $this->db->where_in('status_order', ['sampling', 'processing', 'validasi'])->count_all_results('pendaftaran'),
-            'belum_diinput' => $this->db->where_in('status_order', ['sampling', 'processing'])->count_all_results('pendaftaran'),
-            'siap_validasi' => $this->db->where('status_order', 'validasi')->count_all_results('pendaftaran'),
-            'selesai_hari_ini' => $this->db->where('status_order', 'completed')->where('DATE(waktu_hasil_selesai)', $today)->count_all_results('pendaftaran'),
+            'total_processing' => $this->db->where($klinis)->where_in('status_order', ['sampling', 'processing', 'validasi'])->count_all_results('pendaftaran'),
+            'belum_diinput' => $this->db->where($klinis)->where_in('status_order', ['sampling', 'processing'])->count_all_results('pendaftaran'),
+            'siap_validasi' => $this->db->where($klinis)->where('status_order', 'validasi')->count_all_results('pendaftaran'),
+            'selesai_hari_ini' => $this->db->where($klinis)->where('status_order', 'completed')->where('waktu_hasil_selesai >=', $today . ' 00:00:00')->where('waktu_hasil_selesai <', date('Y-m-d', strtotime('+1 day')) . ' 00:00:00')->count_all_results('pendaftaran'),
             'kritis_count' => $this->db->where('hasil_flag', 'critical')->count_all_results('pendaftaran_detail')
         ];
 
@@ -68,7 +69,9 @@ class Hasil_lab extends CI_Controller {
         $tanggal = $this->input->get('tanggal', TRUE);
 
         // Query Dasar: Spesimen yang sudah masuk lab (status sampling, processing, validasi, atau completed)
+        // Uji lingkungan dikerjakan di modul Kesehatan Lingkungan, tidak tampil di sini
         $this->db->from('pendaftaran');
+        $this->db->where('kategori_pemeriksaan !=', 'lingkungan');
         if ($statusOrder === 'processing') {
             $this->db->where_in('status_order', ['sampling', 'processing']);
         } elseif ($statusOrder === 'validasi') {

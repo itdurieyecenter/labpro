@@ -739,4 +739,158 @@ class Lab_model extends CI_Model {
         $nextNum = $maxNum + 1;
         return sprintf('IKM/5.4.%02d/LKL-PR', $nextNum);
     }
+
+    // =====================================================================
+    // TARIF PARAMETER UJI LINGKUNGAN (env_parameters + lab_tariffs 'env_parameter')
+    // =====================================================================
+
+    public function get_env_sample_types() {
+        return $this->db->where('is_active', 1)->order_by('sort_order', 'ASC')->get('env_sample_types')->result_array();
+    }
+
+    /**
+     * Daftar parameter lingkungan beserta tarif pada kelompok tarif tertentu.
+     */
+    public function get_env_parameters_with_tariff($group = 'umum', $sampleTypeId = null, $search = '') {
+        if (!in_array($group, ['umum', 'perusahaan', 'bpjs', 'asuransi'], true)) {
+            $group = 'umum';
+        }
+        $this->db->select('p.id, p.sample_type_id, p.sub_category, p.param_code, p.param_name, p.unit, p.method_default,
+            st.name AS sample_type_name, t.jasa_manajemen, t.jasa_dokter, t.jasa_petugas, t.kso, t.bhp, t.total_tarif,
+            (t.id IS NOT NULL) AS has_tariff', false);
+        $this->db->from('env_parameters p');
+        $this->db->join('env_sample_types st', 'st.id = p.sample_type_id', 'left');
+        $this->db->join('lab_tariffs t', "t.item_type = 'env_parameter' AND t.item_id = p.id AND t.tariff_group = " . $this->db->escape($group), 'left', false);
+        $this->db->where('p.is_active', 1);
+        if ($sampleTypeId) {
+            $this->db->where('p.sample_type_id', (int)$sampleTypeId);
+        }
+        if ($search !== '') {
+            $this->db->group_start();
+            $this->db->like('p.param_name', $search);
+            $this->db->or_like('p.param_code', $search);
+            $this->db->group_end();
+        }
+        $this->db->order_by('st.sort_order', 'ASC');
+        $this->db->order_by('p.sort_order', 'ASC');
+        $this->db->order_by('p.param_name', 'ASC');
+        return $this->db->get()->result_array();
+    }
+
+    /**
+     * Simpan tarif satu atau banyak parameter lingkungan pada satu kelompok tarif.
+     */
+    public function save_env_tariff(array $paramIds, $group, array $t, $itemType = 'env_parameter') {
+        $paramIds = array_values(array_unique(array_filter(array_map('intval', $paramIds))));
+        if (empty($paramIds)) {
+            return 0;
+        }
+        $jm = max(0, (float)($t['jasa_manajemen'] ?? 0));
+        $jd = max(0, (float)($t['jasa_dokter'] ?? 0));
+        $jp = max(0, (float)($t['jasa_petugas'] ?? 0));
+        $kso = max(0, (float)($t['kso'] ?? 0));
+        $bhp = max(0, (float)($t['bhp'] ?? 0));
+
+        $this->db->trans_start();
+        foreach ($paramIds as $pid) {
+            $row = [
+                'item_type' => $itemType, 'item_id' => $pid, 'tariff_group' => $group,
+                'jasa_manajemen' => $jm, 'jasa_dokter' => $jd, 'jasa_petugas' => $jp, 'kso' => $kso, 'bhp' => $bhp,
+                'total_tarif' => $jm + $jd + $jp + $kso + $bhp,
+                'notes' => $t['notes'] ?? null,
+            ];
+            $existing = $this->db->get_where('lab_tariffs', ['item_type' => $itemType, 'item_id' => $pid, 'tariff_group' => $group])->row_array();
+            if ($existing) {
+                $this->db->where('id', $existing['id'])->update('lab_tariffs', $row);
+            } else {
+                $this->db->insert('lab_tariffs', $row);
+            }
+        }
+        $this->db->trans_complete();
+        return $this->db->trans_status() ? count($paramIds) : 0;
+    }
+
+    // ---------------------------------------------------------------------
+    // PAKET UJI LINGKUNGAN
+    // ---------------------------------------------------------------------
+
+    public function get_env_packages_with_tariff($group = 'umum', $sampleTypeId = null, $search = '') {
+        if (!in_array($group, ['umum', 'perusahaan', 'bpjs', 'asuransi'], true)) {
+            $group = 'umum';
+        }
+        $this->db->select('k.id, k.package_code, k.package_name, k.sample_type_id, k.description, st.name AS sample_type_name,
+            t.jasa_manajemen, t.jasa_dokter, t.jasa_petugas, t.kso, t.bhp, t.total_tarif, (t.id IS NOT NULL) AS has_tariff', false);
+        $this->db->from('env_packages k');
+        $this->db->join('env_sample_types st', 'st.id = k.sample_type_id', 'left');
+        $this->db->join('lab_tariffs t', "t.item_type = 'env_package' AND t.item_id = k.id AND t.tariff_group = " . $this->db->escape($group), 'left', false);
+        $this->db->where('k.is_active', 1);
+        if ($sampleTypeId) {
+            $this->db->where('k.sample_type_id', (int)$sampleTypeId);
+        }
+        if ($search !== '') {
+            $this->db->group_start();
+            $this->db->like('k.package_name', $search);
+            $this->db->or_like('k.package_code', $search);
+            $this->db->group_end();
+        }
+        $this->db->order_by('st.sort_order', 'ASC');
+        $this->db->order_by('k.package_name', 'ASC');
+        $packages = $this->db->get()->result_array();
+
+        foreach ($packages as &$pk) {
+            $pk['items'] = $this->get_env_package_items($pk['id']);
+        }
+        return $packages;
+    }
+
+    public function get_env_package_items($packageId) {
+        return $this->db->select('p.id, p.param_code, p.param_name, p.unit')
+            ->from('env_package_items i')
+            ->join('env_parameters p', 'p.id = i.parameter_id')
+            ->where('i.package_id', (int)$packageId)
+            ->order_by('p.sort_order', 'ASC')->order_by('p.param_name', 'ASC')
+            ->get()->result_array();
+    }
+
+    public function generate_env_package_code() {
+        $last = $this->db->select('package_code')->like('package_code', 'PKT-ENV-', 'after')
+            ->order_by('id', 'DESC')->limit(1)->get('env_packages')->row_array();
+        $n = 1;
+        if ($last && preg_match('/(\d+)$/', $last['package_code'], $m)) {
+            $n = (int)$m[1] + 1;
+        }
+        return 'PKT-ENV-' . str_pad($n, 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Simpan paket + daftar parameter. Mengembalikan id paket, atau false.
+     */
+    public function save_env_package(array $data, array $paramIds, $id = null) {
+        $paramIds = array_values(array_unique(array_filter(array_map('intval', $paramIds))));
+        $this->db->trans_start();
+
+        if ($id) {
+            $this->db->where('id', (int)$id)->update('env_packages', $data);
+            $pid = (int)$id;
+            $this->db->where('package_id', $pid)->delete('env_package_items');
+        } else {
+            $data['package_code'] = $this->generate_env_package_code();
+            $this->db->insert('env_packages', $data);
+            $pid = $this->db->insert_id();
+        }
+        foreach ($paramIds as $paramId) {
+            $this->db->insert('env_package_items', ['package_id' => $pid, 'parameter_id' => $paramId]);
+        }
+
+        $this->db->trans_complete();
+        return $this->db->trans_status() ? $pid : false;
+    }
+
+    public function delete_env_package($id) {
+        $this->db->trans_start();
+        $this->db->where('item_type', 'env_package')->where('item_id', (int)$id)->delete('lab_tariffs');
+        $this->db->where('id', (int)$id)->delete('env_packages');
+        $this->db->trans_complete();
+        return $this->db->trans_status() !== FALSE;
+    }
 }

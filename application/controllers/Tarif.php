@@ -72,6 +72,145 @@ class Tarif extends CI_Controller {
         $this->load->view('layout/footer', $data);
     }
 
+    public function lingkungan() {
+        $this->rbac_lib->require_access('tarif/lingkungan', 'view');
+
+        $data['title'] = 'Master Tarif Uji Lingkungan - LIS PRO';
+        $data['active_menu'] = 'tarif/lingkungan';
+        $data['user'] = $this->rbac_lib->user();
+        $data['menu_tree'] = $this->rbac_lib->get_menu_tree();
+        $data['can_create'] = $this->rbac_lib->has_access('tarif/lingkungan', 'create');
+        $data['can_edit'] = $this->rbac_lib->has_access('tarif/lingkungan', 'edit');
+        $data['can_delete'] = $this->rbac_lib->has_access('tarif/lingkungan', 'delete');
+        $data['active_tab'] = 'lingkungan';
+
+        $data['categories'] = $this->lab_model->get_categories();
+        $data['methods'] = $this->lab_model->get_all_methods();
+        $data['env_sample_types'] = $this->lab_model->get_env_sample_types();
+
+        $this->_log('VIEW_PAGE', 'Halaman Master Tarif Uji Lingkungan diakses');
+
+        $this->load->view('layout/header', $data);
+        $this->load->view('layout/sidebar', $data);
+        $this->load->view('layout/topbar', $data);
+        $this->load->view('tarif/index', $data);
+        $this->load->view('layout/footer', $data);
+    }
+
+    public function fetch_env_parameters() {
+        $this->rbac_lib->require_access('tarif/lingkungan', 'view');
+        $group = $this->input->get('tariff_group', TRUE) ?: 'umum';
+        $rows = $this->lab_model->get_env_parameters_with_tariff(
+            $group,
+            (int)$this->input->get('sample_type_id', TRUE),
+            trim((string)$this->input->get('q', TRUE))
+        );
+        return $this->output->set_content_type('application/json')
+            ->set_output(json_encode(['status' => 'success', 'data' => $rows, 'sample_types' => $this->lab_model->get_env_sample_types()]));
+    }
+
+    /**
+     * Simpan tarif: satu parameter (param_id) atau massal (param_ids[] dari baris terfilter).
+     */
+    public function save_env_tariff() {
+        $this->rbac_lib->require_access('tarif/lingkungan', 'edit');
+
+        $group = $this->input->post('tariff_group', TRUE) ?: 'umum';
+        if (!in_array($group, ['umum', 'perusahaan', 'bpjs', 'asuransi'], true)) {
+            return $this->output->set_status_header(400)->set_content_type('application/json')
+                ->set_output(json_encode(['status' => 'error', 'message' => 'Kelompok tarif tidak valid.']));
+        }
+        $ids = $this->input->post('param_ids', TRUE);
+        $ids = is_array($ids) ? $ids : array_filter([$this->input->post('param_id', TRUE)]);
+
+        $tariff = [];
+        foreach (['jasa_manajemen', 'jasa_dokter', 'jasa_petugas', 'kso', 'bhp'] as $f) {
+            $tariff[$f] = $this->input->post($f, TRUE);
+        }
+        $tariff['notes'] = $this->input->post('notes', TRUE) ?: null;
+
+        $n = $this->lab_model->save_env_tariff($ids, $group, $tariff);
+        if ($n === 0) {
+            return $this->output->set_status_header(400)->set_content_type('application/json')
+                ->set_output(json_encode(['status' => 'error', 'message' => 'Tidak ada parameter yang disimpan.']));
+        }
+        $this->_log('SAVE_ENV_TARIFF', sprintf('Grup=%s | Jumlah parameter=%d', $group, $n));
+        return $this->output->set_content_type('application/json')
+            ->set_output(json_encode(['status' => 'success', 'message' => $n . ' parameter lingkungan diperbarui tarifnya.']));
+    }
+
+    public function fetch_env_packages() {
+        $this->rbac_lib->require_access('tarif/lingkungan', 'view');
+        $rows = $this->lab_model->get_env_packages_with_tariff(
+            $this->input->get('tariff_group', TRUE) ?: 'umum',
+            (int)$this->input->get('sample_type_id', TRUE),
+            trim((string)$this->input->get('q', TRUE))
+        );
+        return $this->output->set_content_type('application/json')
+            ->set_output(json_encode(['status' => 'success', 'data' => $rows]));
+    }
+
+    private function _json_error($message, $code = 400) {
+        return $this->output->set_status_header($code)->set_content_type('application/json')
+            ->set_output(json_encode(['status' => 'error', 'message' => $message]));
+    }
+
+    public function save_env_package() {
+        $this->rbac_lib->require_access('tarif/lingkungan', 'edit');
+
+        $id = (int)$this->input->post('id', TRUE);
+        $name = trim((string)$this->input->post('package_name', TRUE));
+        $typeId = (int)$this->input->post('sample_type_id', TRUE);
+        $group = $this->input->post('tariff_group', TRUE) ?: 'umum';
+        $paramIds = $this->input->post('param_ids', TRUE);
+        $paramIds = is_array($paramIds) ? $paramIds : [];
+
+        if ($name === '' || !$typeId) {
+            return $this->_json_error('Nama paket dan tipe sampel wajib diisi.');
+        }
+        if (empty($paramIds)) {
+            return $this->_json_error('Pilih minimal 1 parameter untuk paket.');
+        }
+        if (!in_array($group, ['umum', 'perusahaan', 'bpjs', 'asuransi'], true)) {
+            return $this->_json_error('Kelompok tarif tidak valid.');
+        }
+        // Hanya parameter dari tipe sampel yang sama
+        $valid = $this->db->select('id')->where('sample_type_id', $typeId)->where_in('id', array_map('intval', $paramIds))->get('env_parameters')->result_array();
+        if (count($valid) !== count(array_unique(array_map('intval', $paramIds)))) {
+            return $this->_json_error('Ada parameter yang bukan bagian dari tipe sampel paket.');
+        }
+
+        $pid = $this->lab_model->save_env_package([
+            'package_name' => $name,
+            'sample_type_id' => $typeId,
+            'description' => trim((string)$this->input->post('description', TRUE)) ?: null,
+        ], array_column($valid, 'id'), $id ?: null);
+        if (!$pid) {
+            return $this->_json_error('Paket tidak dapat disimpan.', 500);
+        }
+
+        $tariff = [];
+        foreach (['jasa_manajemen', 'jasa_dokter', 'jasa_petugas', 'kso', 'bhp'] as $f) {
+            $tariff[$f] = $this->input->post($f, TRUE);
+        }
+        $total = array_sum(array_map('floatval', $tariff));
+        if ($total > 0) {
+            $this->lab_model->save_env_tariff([$pid], $group, $tariff, 'env_package');
+        }
+
+        $this->_log('SAVE_ENV_PACKAGE', sprintf('ID=%d | %s | parameter=%d | tarif %s=%s', $pid, $name, count($valid), $group, $total));
+        return $this->output->set_content_type('application/json')
+            ->set_output(json_encode(['status' => 'success', 'message' => 'Paket "' . $name . '" disimpan.' . ($total > 0 ? '' : ' Tarif belum diisi, paket belum tampil di Pendaftaran.')]));
+    }
+
+    public function delete_env_package($id) {
+        $this->rbac_lib->require_access('tarif/lingkungan', 'delete');
+        $this->lab_model->delete_env_package((int)$id);
+        $this->_log('DELETE_ENV_PACKAGE', 'ID=' . (int)$id);
+        return $this->output->set_content_type('application/json')
+            ->set_output(json_encode(['status' => 'success', 'message' => 'Paket dihapus.']));
+    }
+
     public function metode() {
         $this->rbac_lib->require_access('tarif/metode', 'view');
 

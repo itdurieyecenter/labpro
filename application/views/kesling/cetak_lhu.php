@@ -182,11 +182,33 @@ foreach ($grouped as $rows) { foreach ($rows as $r) { if (!empty($r['is_accredit
         </ol>
     </div>
 
-    <div class="sign">
+    <div class="sign" style="align-items: flex-start;">
+        <div class="sign-box" style="text-align: left; flex: 1.15;">
+            <div style="display: flex; align-items: center; gap: 10px; border: 1px solid <?= $order['status'] === 'completed' ? '#cbd5e1' : '#fca5a5' ?>; background: <?= $order['status'] === 'completed' ? '#f8fafc' : '#fff5f5' ?>; border-radius: 6px; padding: 8px 10px; margin-top: 6px;">
+                <?php if ($order['status'] === 'completed' && !empty($verify_url)): ?>
+                    <div style="text-align: center; flex-shrink: 0;">
+                        <div id="lhu-qr" data-url="<?= html_escape($verify_url) ?>" style="width: 58px; height: 58px; display: flex; align-items: center; justify-content: center; background: #fff; padding: 3px; border: 1px solid #cbd5e1; border-radius: 4px;"></div>
+                        <span style="font-size: 7.5px; font-family: monospace; font-weight: 800; color: #064e3b; display: block; margin-top: 2px;">TERVERIFIKASI</span>
+                    </div>
+                    <div style="font-size: 8.5px; color: #475569; line-height: 1.35;">
+                        <strong style="color: #064e3b; display: block; font-size: 9px;">DOKUMEN LHU RESMI ELEKTRONIK</strong>
+                        Pindai kode QR untuk memverifikasi keaslian Laporan Hasil Uji (LHU) ini secara daring pada sistem LIS PRO UPT Labkes Provinsi Riau.
+                    </div>
+                <?php else: ?>
+                    <div style="text-align: center; flex-shrink: 0; width: 58px; padding: 6px 4px; border: 1px dashed #dc2626; border-radius: 4px; color: #dc2626; font-weight: 900; font-size: 8px;">
+                        DRAFT<br>BELUM SAH
+                    </div>
+                    <div style="font-size: 8.5px; color: #991b1b; line-height: 1.35;">
+                        <strong style="color: #b91c1c; display: block; font-size: 9px;">STATUS: BELUM DISAHKAN</strong>
+                        Dokumen LHU ini masih berstatus <em><?= html_escape(strtoupper($order['status'])) ?></em>. Kode QR legalitas resmi aktif setelah status pengujian <strong>Selesai (Completed)</strong>.
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
         <div class="sign-box">
             <div><?= html_escape($profile['kota']) ?>, <?= _lhu_dt($order['analysis_end'] ?: $order['updated_at'], FALSE) ?></div>
             <div class="sign-sub">Mengetahui, Manajer Teknis /<br><i>Technical Manager</i></div>
-            <div class="sign-space"><?php if ($order['status'] === 'completed'): ?><span style="font-family:cursive; color:#064e3b; font-size:15px; font-weight:bold;">Validated</span><?php endif; ?></div>
+            <div class="sign-space"><?php if ($order['status'] === 'completed'): ?><span style="font-family:cursive; color:#064e3b; font-size:15px; font-weight:bold;">Validated ✓</span><?php endif; ?></div>
             <div class="sign-name"><?= html_escape(get_setting('manajer_teknis', $profile['kepala_lab'])) ?></div>
             <div class="sign-sub">NIP. <?= html_escape(get_setting('nip_manajer_teknis', $profile['nip_kepala'])) ?></div>
         </div>
@@ -207,6 +229,28 @@ foreach ($grouped as $rows) { foreach ($rows as $r) { if (!empty($r['is_accredit
         <span style="float:right; color:#94a3b8;">Dicetak: <?= date('d/m/Y H:i') ?> &bull; LIS PRO</span>
     </div>
 </div>
+
+<?php if ($order['status'] === 'completed' && !empty($verify_url)): ?>
+<script src="<?= base_url('assets/plugins/qrcode/qrcode.min.js') ?>"></script>
+<script>
+(function () {
+    var el = document.getElementById('lhu-qr');
+    if (!el || typeof qrcode === 'undefined') return;
+    var url = el.getAttribute('data-url');
+    if (!url) return;
+    try {
+        var qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        el.innerHTML = qr.createSvgTag({ scalable: true, margin: 0 });
+        var svg = el.querySelector('svg');
+        if (svg) { svg.setAttribute('width', '52'); svg.setAttribute('height', '52'); }
+    } catch (e) {
+        el.innerHTML = '<span style="font-size:7px;color:#64748b;">QR Error</span>';
+    }
+})();
+</script>
+<?php endif; ?>
 
 </body>
 </html>

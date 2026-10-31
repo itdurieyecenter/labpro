@@ -32,10 +32,11 @@ class Validasi extends CI_Controller {
 
         // Statistik otorisasi
         $today = date('Y-m-d');
+        $klinis = ['kategori_pemeriksaan !=' => 'lingkungan'];
         $data['stats'] = [
-            'siap_validasi' => $this->db->where('status_order', 'validasi')->count_all_results('pendaftaran'),
-            'tervalidasi_hari_ini' => $this->db->where('status_order', 'completed')->where('DATE(waktu_hasil_selesai)', $today)->count_all_results('pendaftaran'),
-            'total_completed' => $this->db->where('status_order', 'completed')->count_all_results('pendaftaran'),
+            'siap_validasi' => $this->db->where($klinis)->where('status_order', 'validasi')->count_all_results('pendaftaran'),
+            'tervalidasi_hari_ini' => $this->db->where($klinis)->where('status_order', 'completed')->where('waktu_hasil_selesai >=', $today . ' 00:00:00')->where('waktu_hasil_selesai <', date('Y-m-d', strtotime('+1 day')) . ' 00:00:00')->count_all_results('pendaftaran'),
+            'total_completed' => $this->db->where($klinis)->where('status_order', 'completed')->count_all_results('pendaftaran'),
             'kritis_alert' => $this->db->where('hasil_flag', 'critical')->count_all_results('pendaftaran_detail')
         ];
 
@@ -65,6 +66,7 @@ class Validasi extends CI_Controller {
         $tanggal = $this->input->get('tanggal', TRUE);
 
         $this->db->from('pendaftaran');
+        $this->db->where('kategori_pemeriksaan !=', 'lingkungan');
 
         if ($filterStatus === 'siap') {
             $this->db->where('status_order', 'validasi');
@@ -188,66 +190,58 @@ class Validasi extends CI_Controller {
     }
 
     /**
-     * Proses Otorisasi Klinis Resmi oleh Dokter Sp.PK
+     * Otorisasi lama (tombol tunggal) DIMATIKAN: order hanya selesai bila seluruh
+     * tahapan verifikasi berjenjang sudah ditandatangani.
      */
     public function otorisasi() {
         $this->rbac_lib->require_access('validasi', 'edit');
-
-        $id = (int)$this->input->post('id', TRUE);
-        $dokterPj = trim($this->input->post('dokter_pj', TRUE)) ?: ($this->rbac_lib->user('full_name') ?: 'Dokter Sp.PK');
-        $kesimpulan = trim($this->input->post('kesimpulan_klinis', TRUE));
-        $catatan = trim($this->input->post('catatan_hasil', TRUE));
-
-        $user = $this->rbac_lib->user();
-        $userId = isset($user['id']) ? (int)$user['id'] : null;
-        $userName = isset($user['full_name']) ? $user['full_name'] : 'Dokter Sp.PK';
-
-        $pendaftaran = $this->pendaftaran_model->get_by_id($id);
-        if (!$pendaftaran) {
-            return $this->output->set_status_header(404)->set_output(json_encode(['status' => 'error', 'message' => 'Data tidak ditemukan']));
-        }
-
-        $now = date('Y-m-d H:i:s');
-
-        $this->db->trans_start();
-
-        // Update status pendaftaran jadi completed
-        $this->db->where('id', $id)->update('pendaftaran', [
-            'status_order' => 'completed',
-            'dokter_pj' => $dokterPj,
-            'kesimpulan_saran' => $kesimpulan,
-            'catatan' => $catatan,
-            'waktu_hasil_selesai' => $now,
-            'updated_at' => $now
-        ]);
-
-        // Audit Trail Log
-        $this->db->insert('pendaftaran_log', [
-            'pendaftaran_id' => $id,
-            'action' => 'VALIDASI_OTORISASI_SPPK',
-            'description' => sprintf("Otorisasi & Validasi Klinis oleh Dokter %s. Status Order: COMPLETED.", $dokterPj),
-            'user_id' => $userId,
-            'user_name' => $userName
-        ]);
-
-        $this->db->trans_complete();
-
-        if ($this->db->trans_status() === FALSE) {
-            return $this->output
-                ->set_status_header(500)
-                ->set_content_type('application/json')
-                ->set_output(json_encode(['status' => 'error', 'message' => 'Gagal menyimpan otorisasi ke database.']));
-        }
-
-        $this->_log('OTORISASI', sprintf("Order ID=%d divalidasi oleh Dokter %s", $id, $dokterPj));
-
         return $this->output
+            ->set_status_header(409)
             ->set_content_type('application/json')
             ->set_output(json_encode([
-                'status' => 'success',
-                'message' => 'Otorisasi klinis resmi berhasil. Hasil pemeriksaan kini berstatus Selesai (Completed) dan siap dicetak.',
-                'waktu_selesai' => $now
+                'status' => 'error',
+                'message' => 'Otorisasi langsung tidak diperbolehkan. Selesaikan seluruh tahapan verifikasi berjenjang (tanda tangan tiap tingkat).'
             ]));
+    }
+
+    /**
+     * Tolak / kembalikan hasil ke analis untuk revisi. Semua tanda tangan dibatalkan.
+     */
+    public function tolak() {
+        $this->rbac_lib->require_access('validasi', 'edit');
+
+        $id = (int)$this->input->post('id', TRUE);
+        $alasan = trim($this->input->post('alasan', TRUE));
+        $reg = $this->pendaftaran_model->get_by_id($id);
+        if (!$reg) {
+            return $this->output->set_status_header(404)->set_output(json_encode(['status' => 'error', 'message' => 'Data tidak ditemukan']));
+        }
+        if ($reg['status_order'] !== 'validasi') {
+            return $this->output->set_status_header(409)->set_content_type('application/json')
+                ->set_output(json_encode(['status' => 'error', 'message' => 'Hanya order berstatus Validasi yang dapat dikembalikan.']));
+        }
+        if ($alasan === '') {
+            return $this->output->set_status_header(400)->set_content_type('application/json')
+                ->set_output(json_encode(['status' => 'error', 'message' => 'Alasan pengembalian wajib diisi.']));
+        }
+
+        $user = $this->rbac_lib->user();
+        $userName = $user['full_name'] ?? 'Petugas';
+        $this->db->trans_start();
+        $this->approval_model->reset_order_approvals($id);
+        $this->db->where('id', $id)->update('pendaftaran', ['status_order' => 'processing', 'updated_at' => date('Y-m-d H:i:s')]);
+        $this->db->where('pendaftaran_id', $id)->update('pendaftaran_detail', ['status_pengujian' => 'processing']);
+        $this->db->insert('pendaftaran_log', [
+            'pendaftaran_id' => $id,
+            'action' => 'TOLAK_VALIDASI',
+            'description' => 'Hasil dikembalikan ke analis untuk revisi. Alasan: ' . $alasan . '. Seluruh tanda tangan verifikasi dibatalkan.',
+            'user_id' => $user['id'] ?? null,
+            'user_name' => $userName,
+        ]);
+        $this->db->trans_complete();
+
+        return $this->output->set_content_type('application/json')
+            ->set_output(json_encode(['status' => 'success', 'message' => 'Hasil dikembalikan ke analis (Input Hasil Lab) untuk revisi.']));
     }
 
     /**

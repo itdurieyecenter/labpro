@@ -259,6 +259,9 @@
                             <span>Simpan Ekspertise Klinis</span>
                         </button>
                         
+                        <button type="button" id="btn-tolak-validasi" onclick="tolakValidasi()" class="hidden px-4 py-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 text-xs font-bold border border-rose-300 transition-all flex items-center gap-2">
+                            <i data-lucide="undo-2" class="w-4 h-4"></i><span>Kembalikan ke Analis</span>
+                        </button>
                         <a id="btn-cetak-resmi-modal" href="#" target="_blank" class="hidden px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md shadow-emerald-900/20 transition-all flex items-center gap-2 border border-emerald-600">
                             <i data-lucide="printer" class="w-4 h-4 text-amber-300"></i>
                             <span>Cetak Hasil Resmi (Lengkap TTD)</span>
@@ -555,6 +558,7 @@
 
                     // Tombol Cetak Hasil di Modal
                     const btnCetak = document.getElementById('btn-cetak-resmi-modal');
+                    document.getElementById('btn-tolak-validasi').classList.toggle('hidden', reg.status_order !== 'validasi');
                     const keabsahan = res.data.keabsahan || { is_sah: false, mode_belum_lengkap: 'watermark' };
                     btnCetak.onclick = null;
 
@@ -941,6 +945,31 @@
             btnSubmit.disabled = false;
             btnSubmit.innerHTML = origBtnText;
             LIS.showError('Error Approval', err, 'Terjadi kendala sistem saat memproses approval berjenjang.');
+        });
+    }
+
+    function tolakValidasi() {
+        const id = document.getElementById('val-reg-id').value;
+        Swal.fire({
+            title: 'Kembalikan ke Analis?',
+            input: 'textarea',
+            inputLabel: 'Alasan revisi (wajib)',
+            text: 'Seluruh tanda tangan verifikasi yang sudah ada akan dibatalkan.',
+            showCancelButton: true,
+            confirmButtonText: 'Kembalikan',
+            confirmButtonColor: '#be123c',
+            inputValidator: v => (!v || !v.trim()) ? 'Alasan wajib diisi' : null
+        }).then(r => {
+            if (!r.isConfirmed) return;
+            const fd = new FormData();
+            fd.append('id', id);
+            fd.append('alasan', r.value);
+            LIS.fetchJson('<?= site_url('validasi/tolak') ?>', { method: 'POST', body: fd })
+                .then(res => {
+                    LIS.toast('success', res.message);
+                    location.reload();
+                })
+                .catch(err => LIS.showError('Gagal', err, 'Gagal mengembalikan hasil.'));
         });
     }
 

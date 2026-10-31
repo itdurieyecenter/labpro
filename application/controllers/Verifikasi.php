@@ -19,6 +19,7 @@ class Verifikasi extends CI_Controller {
         // Sengaja TANPA require_login — ini endpoint publik.
         $this->load->model('pendaftaran_model');
         $this->load->model('approval_model');
+        $this->load->model('kesling_model');
     }
 
     /**
@@ -77,6 +78,50 @@ class Verifikasi extends CI_Controller {
         ];
 
         log_message('info', sprintf('[VERIFIKASI_PUBLIK] Reg=%s | sah=%s', $reg['nomor_registrasi'], $data['is_sah'] ? '1' : '0'));
+
+        $this->load->view('verifikasi/cek', $data);
+    }
+
+    /**
+     * Verifikasi publik keaslian LHU Kesehatan Lingkungan: /verifikasi/kesling/{id}/{token}
+     */
+    public function kesling($id = null, $token = null) {
+        $data['profile'] = app_profile();
+        $data['valid'] = false;
+        $data['reg'] = null;
+
+        $order = $id ? $this->kesling_model->get_minimal_for_verify($id) : null;
+        if (!$order || empty($token)) {
+            $data['alasan'] = 'Dokumen LHU Lingkungan tidak ditemukan.';
+            $this->load->view('verifikasi/cek', $data);
+            return;
+        }
+
+        $expected = $this->kesling_model->verification_token($order['id'], $order['order_number']);
+        if (!hash_equals($expected, (string)$token)) {
+            $data['alasan'] = 'Kode verifikasi tidak cocok. Dokumen tidak dapat dipastikan keasliannya.';
+            $this->load->view('verifikasi/cek', $data);
+            return;
+        }
+
+        $this->load->model('approval_model');
+        $kab = $this->approval_model->env_check_keabsahan($order['id']);
+        $isSah = ($order['status'] === 'completed' && $kab['is_sah']);
+        $data['valid'] = true;
+        $data['is_sah'] = $isSah;
+        $data['signed_count'] = $kab['signed_count'];
+        $data['total_steps'] = $kab['total_steps'];
+        $data['reg'] = [
+            'nomor_registrasi' => $order['order_number'],
+            'barcode_sampel'   => $order['fpps_number'] ?: ('LAB-' . ($order['lab_number'] ?: $order['id'])),
+            'nama_mask'        => $order['customer_name'],
+            'tanggal'          => $order['received_at'] ?: $order['created_at'],
+            'waktu_selesai'    => $order['analysis_end'] ?: ($isSah ? $order['updated_at'] : null),
+            'dokter_pj'        => get_setting('manajer_teknis', $data['profile']['kepala_lab']),
+            'kategori'         => 'Kesehatan Lingkungan - ' . ($order['sample_type_name'] ?? 'Sampel Lingkungan'),
+        ];
+
+        log_message('info', sprintf('[VERIFIKASI_KESLING_PUBLIK] Order=%s | sah=%s', $order['order_number'], $isSah ? '1' : '0'));
 
         $this->load->view('verifikasi/cek', $data);
     }

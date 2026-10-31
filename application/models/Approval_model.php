@@ -235,6 +235,20 @@ class Approval_model extends CI_Model {
     }
 
     /**
+     * Aturan aktif yang berlaku untuk modul tertentu ('klinis' | 'lingkungan').
+     */
+    protected function _rules_for($modul) {
+        $out = [];
+        foreach ($this->get_rules(true) as $r) {
+            $bu = $r['berlaku_untuk'] ?? 'semua';
+            if ($bu === 'semua' || $bu === $modul) {
+                $out[] = $r;
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Inisialisasi Rantai Approval Berjenjang untuk Order Pendaftaran Tertentu
      */
     public function init_order_approval($pendaftaranId) {
@@ -246,7 +260,7 @@ class Approval_model extends CI_Model {
             return true;
         }
 
-        $rules = $this->get_rules(true); // Ambil hanya yang aktif
+        $rules = $this->_rules_for('klinis');
         if (empty($rules)) {
             return false;
         }
@@ -308,6 +322,24 @@ class Approval_model extends CI_Model {
     public function approve_step($pendaftaranId, $stepUrutan, $approvalData, $userId = null, $userName = 'Petugas') {
         $pendaftaranId = (int)$pendaftaranId;
         $stepUrutan = (int)$stepUrutan;
+
+        $reg = $this->db->get_where('pendaftaran', ['id' => $pendaftaranId])->row_array();
+        if (!$reg) {
+            return ['status' => false, 'message' => 'Data pendaftaran tidak ditemukan.'];
+        }
+        if ($reg['kategori_pemeriksaan'] === 'lingkungan') {
+            return ['status' => false, 'message' => 'Pendaftaran uji lingkungan diverifikasi melalui menu Verifikasi Hasil Lingkungan.'];
+        }
+        if ($reg['status_order'] !== 'validasi') {
+            return ['status' => false, 'message' => 'Approval hanya dapat dilakukan setelah hasil lengkap dikirim ke Validasi (status saat ini: ' . strtoupper($reg['status_order']) . ').'];
+        }
+        $kosong = $this->db->where('pendaftaran_id', $pendaftaranId)
+            ->where('tipe_item !=', 'template') // baris paket hanya header; hasil ada di sub-parameter
+            ->group_start()->where('hasil_nilai IS NULL', null, false)->or_where('hasil_nilai', '')->group_end()
+            ->count_all_results('pendaftaran_detail');
+        if ($kosong > 0) {
+            return ['status' => false, 'message' => 'Masih ada ' . $kosong . ' parameter tanpa hasil. Lengkapi hasil sebelum diverifikasi.'];
+        }
 
         $approvals = $this->get_order_approvals($pendaftaranId);
         if (empty($approvals)) {
@@ -438,6 +470,145 @@ class Approval_model extends CI_Model {
     }
 
     /**
+     * Ulang rantai approval klinis (hasil direvisi / ditolak). Semua tanda tangan dibatalkan.
+     */
+    public function reset_order_approvals($pendaftaranId) {
+        $this->db->where('pendaftaran_id', (int)$pendaftaranId)->delete($this->table_tracking);
+    }
+
+    public function count_approved($pendaftaranId) {
+        return (int)$this->db->where('pendaftaran_id', (int)$pendaftaranId)
+            ->where('status', 'approved')->count_all_results($this->table_tracking);
+    }
+
+    // =====================================================================
+    // RANTAI APPROVAL UJI LINGKUNGAN (env_order_approvals)
+    // =====================================================================
+
+    public function env_init($orderId) {
+        $orderId = (int)$orderId;
+        if ($this->db->where('order_id', $orderId)->count_all_results('env_order_approvals') > 0) {
+            return true;
+        }
+        $rules = $this->_rules_for('lingkungan');
+        if (empty($rules)) return false;
+
+        $now = date('Y-m-d H:i:s');
+        $batch = [];
+        foreach ($rules as $i => $r) {
+            $batch[] = [
+                'order_id' => $orderId,
+                'rule_id' => (int)$r['id'],
+                'urutan' => $i + 1,
+                'pegawai_id' => (int)$r['pegawai_id'],
+                'pegawai_nama' => $r['nama_formatted'],
+                'pegawai_nip' => $r['nip'],
+                'jabatan_approval' => $r['jabatan_approval'],
+                'status' => $i === 0 ? 'pending' : 'waiting',
+                'tanda_tangan' => $r['pegawai_tanda_tangan'] ?: null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+        $this->db->insert_batch('env_order_approvals', $batch);
+        return true;
+    }
+
+    public function env_get($orderId) {
+        $rows = $this->db->where('order_id', (int)$orderId)->order_by('urutan', 'ASC')->get('env_order_approvals')->result_array();
+        if (empty($rows)) {
+            $this->env_init($orderId);
+            $rows = $this->db->where('order_id', (int)$orderId)->order_by('urutan', 'ASC')->get('env_order_approvals')->result_array();
+        }
+        return $rows;
+    }
+
+    public function env_reset($orderId) {
+        $this->db->where('order_id', (int)$orderId)->delete('env_order_approvals');
+    }
+
+    public function env_count_approved($orderId) {
+        return (int)$this->db->where('order_id', (int)$orderId)->where('status', 'approved')->count_all_results('env_order_approvals');
+    }
+
+    public function env_check_keabsahan($orderId) {
+        $rows = $this->env_get($orderId);
+        $signed = 0;
+        foreach ($rows as $r) {
+            if ($r['status'] === 'approved' && !empty($r['tanda_tangan'])) $signed++;
+        }
+        $total = count($rows);
+        return [
+            'is_sah' => ($total > 0 && $signed === $total),
+            'total_steps' => $total,
+            'signed_count' => $signed,
+        ];
+    }
+
+    public function env_approve_step($orderId, $urutan, $data, $userId = null, $userName = 'Petugas') {
+        $orderId = (int)$orderId;
+        $urutan = (int)$urutan;
+        $order = $this->db->get_where('env_orders', ['id' => $orderId])->row_array();
+        if (!$order) return ['status' => false, 'message' => 'Order lingkungan tidak ditemukan.'];
+        if ($order['status'] !== 'validasi') {
+            return ['status' => false, 'message' => 'Verifikasi hanya dapat dilakukan setelah hasil dikirim ke tahap Validasi (status saat ini: ' . strtoupper($order['status']) . ').'];
+        }
+
+        $rows = $this->env_get($orderId);
+        if (empty($rows)) return ['status' => false, 'message' => 'Rantai verifikasi lingkungan belum dikonfigurasi.'];
+
+        $target = null;
+        foreach ($rows as $r) {
+            if ((int)$r['urutan'] < $urutan && $r['status'] !== 'approved') {
+                return ['status' => false, 'message' => 'Verifikasi harus berjenjang! Tahapan sebelumnya belum disahkan.'];
+            }
+            if ((int)$r['urutan'] === $urutan) $target = $r;
+        }
+        if (!$target) return ['status' => false, 'message' => 'Tahapan verifikasi tidak ditemukan.'];
+        if ($target['status'] === 'approved') return ['status' => false, 'message' => 'Tahapan ini sudah disahkan.'];
+
+        $ttd = !empty($data['tanda_tangan']) ? $data['tanda_tangan'] : $target['tanda_tangan'];
+        if (empty($ttd)) return ['status' => false, 'message' => 'Setiap tingkatan wajib memiliki tanda tangan digital.'];
+
+        $now = date('Y-m-d H:i:s');
+        $this->db->trans_start();
+        $this->db->where('id', (int)$target['id'])->update('env_order_approvals', [
+            'status' => 'approved',
+            'catatan' => trim($data['catatan'] ?? ''),
+            'tanda_tangan' => $ttd,
+            'approved_by_user_id' => $userId,
+            'approved_by_user_name' => $userName,
+            'waktu_approval' => $now,
+            'ip_address' => $this->input->ip_address(),
+            'updated_at' => $now,
+        ]);
+
+        $next = $this->db->where('order_id', $orderId)->where('urutan >', $urutan)->order_by('urutan', 'ASC')->limit(1)
+            ->get('env_order_approvals')->row_array();
+        $done = false;
+        if ($next) {
+            $this->db->where('id', (int)$next['id'])->update('env_order_approvals', ['status' => 'pending', 'updated_at' => $now]);
+        } else {
+            $done = true;
+            $this->db->where('id', $orderId)->update('env_orders', ['status' => 'completed', 'updated_at' => $now]);
+            if (!empty($order['pendaftaran_id'])) {
+                $this->db->where('id', (int)$order['pendaftaran_id'])->update('pendaftaran', [
+                    'status_order' => 'completed', 'waktu_hasil_selesai' => $now, 'updated_at' => $now
+                ]);
+            }
+        }
+        $this->db->trans_complete();
+        if ($this->db->trans_status() === FALSE) return ['status' => false, 'message' => 'Gagal menyimpan verifikasi.'];
+
+        return [
+            'status' => true,
+            'is_all_completed' => $done,
+            'message' => $done ? 'Seluruh tahapan verifikasi lengkap. LHU kini sah dan dapat dicetak.'
+                               : 'Tahap ' . $urutan . ' (' . $target['jabatan_approval'] . ') disahkan. Diteruskan ke tahap berikutnya.',
+        ];
+    }
+
+    /**
      * Evaluasi Keabsahan Hasil Uji Lab Berdasarkan Kelengkapan Tanda Tangan Approval Berjenjang
      * 
      * Syarat Hasil Sah:
@@ -488,7 +659,8 @@ class Approval_model extends CI_Model {
         }
         
         $wajibSemuaTtd = (get_setting('approval_wajib_semua_ttd', '1') === '1');
-        $modeBelumLengkap = get_setting('approval_mode_belum_lengkap', 'watermark'); // 'watermark' atau 'block'
+        // Hasil belum sah TIDAK PERNAH boleh dicetak: mode selalu 'block'.
+        $modeBelumLengkap = 'block';
         $teksWatermark = get_setting('approval_teks_watermark', 'HASIL BELUM SAH • MENUNGGU APPROVAL BERJENJANG');
         $keteranganHukum = get_setting('approval_keterangan_hukum', 'Hasil pemeriksaan ini BELUM SAH secara hukum dan belum dapat diserahkan ke pelanggan karena proses verifikasi berjenjang belum lengkap bertandatangan.');
         

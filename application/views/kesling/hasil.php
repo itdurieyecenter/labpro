@@ -32,10 +32,19 @@ $badge = function($status) {
                 <?= $hasStandard ? '&bull; Acuan: <strong class="text-emerald-700">' . html_escape($order['standard_name']) . '</strong>' : '' ?>
             </p>
         </div>
-        <div class="flex items-center gap-2">
-            <a href="<?= site_url('kesling/cetak_lhu/' . $order['id']) ?>" target="_blank" class="px-3 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold flex items-center gap-1.5 border border-sky-200">
-                <i data-lucide="printer" class="w-4 h-4"></i> Cetak LHU
+        <div class="flex items-center gap-2 flex-wrap">
+            <a href="<?= site_url('kesling/cetak_barcode/' . $order['id']) ?>" target="_blank" class="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold flex items-center gap-1.5 border border-amber-200">
+                <i data-lucide="barcode" class="w-4 h-4"></i> Label Wadah
             </a>
+            <?php if ($order['status'] === 'completed'): ?>
+            <a href="<?= site_url('kesling/cetak_lhu/' . $order['id']) ?>" target="_blank" class="px-3 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold flex items-center gap-1.5 border border-sky-200">
+                <i data-lucide="printer" class="w-4 h-4"></i> Cetak LHU (Sah)
+            </a>
+            <?php else: ?>
+            <span class="px-3 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs font-bold flex items-center gap-1.5 border border-slate-200 cursor-not-allowed" title="LHU baru dapat dicetak setelah seluruh verifikasi berjenjang selesai">
+                <i data-lucide="lock" class="w-4 h-4"></i> LHU Belum Sah
+            </span>
+            <?php endif; ?>
             <a href="<?= site_url('kesling') ?>" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5">
                 <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali
             </a>
@@ -76,11 +85,10 @@ $badge = function($status) {
                 <h2 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2"><i data-lucide="list-checks" class="w-4 h-4 text-emerald-700"></i> Parameter Uji</h2>
                 <div class="flex items-center gap-2">
                     <select name="status" class="lis-form-control py-1.5 text-xs w-auto">
-                        <?php $st = $order['status']; foreach (['testing'=>'Pengujian','validasi'=>'Validasi','completed'=>'Selesai'] as $k=>$v): ?>
-                            <option value="<?= $k ?>" <?= $st === $k ? 'selected' : '' ?>><?= $v ?></option>
-                        <?php endforeach; ?>
+                        <option value="testing">Simpan sebagai draft (Pengujian)</option>
+                        <option value="validasi" <?= $order['status'] === 'validasi' ? 'selected' : '' ?>>Kirim ke Verifikasi Berjenjang</option>
                     </select>
-                    <?php if ($can_edit): ?>
+                    <?php if ($can_edit && $order['status'] !== 'completed'): ?>
                     <button type="submit" class="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-amber-200 text-xs font-bold flex items-center gap-1.5">
                         <i data-lucide="save" class="w-4 h-4"></i> Simpan Hasil
                     </button>

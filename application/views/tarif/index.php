@@ -110,6 +110,11 @@
             <i data-lucide="microscope" class="w-4 h-4"></i>
             <span>3. Master Metode Pemeriksaan</span>
         </button>
+        <button type="button" onclick="switchTab('lingkungan')" id="btn-tab-lingkungan"
+                class="flex-1 py-3 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-50">
+            <i data-lucide="droplets" class="w-4 h-4"></i>
+            <span>4. Tarif Uji Lingkungan</span>
+        </button>
     </div>
 
     <!-- ============================================================== -->
@@ -257,6 +262,84 @@
             </table>
         </div>
     </div>
+
+    <!-- ============================================================== -->
+    <!-- TAB 4: TARIF PARAMETER UJI LINGKUNGAN                          -->
+    <!-- ============================================================== -->
+    <div id="tab-content-lingkungan" class="space-y-4 hidden">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <select id="env-filter-type" onchange="loadEnvTariffs()" class="lis-input text-xs py-1.5 px-3 w-auto min-w-[170px]">
+                        <option value="">Semua tipe sampel</option>
+                    </select>
+                    <select id="env-filter-group" onchange="loadEnvTariffs()" class="lis-input text-xs py-1.5 px-3 w-auto min-w-[150px]">
+                        <option value="umum" selected>Umum / Reguler</option>
+                        <option value="perusahaan">Rekanan / Perusahaan</option>
+                        <option value="bpjs">BPJS Kesehatan</option>
+                        <option value="asuransi">Asuransi Swasta</option>
+                    </select>
+                    <input type="text" id="env-filter-q" oninput="loadEnvTariffsDebounced()" placeholder="Cari parameter..." class="lis-input text-xs py-1.5 px-3 w-48" autocomplete="off">
+                </div>
+                <?php if ($can_edit): ?>
+                <button type="button" onclick="openEnvTariffModal(null)" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-all flex items-center gap-1.5">
+                    <i data-lucide="wand-sparkles" class="w-3.5 h-3.5"></i> Atur Tarif Massal (<span id="env-bulk-count">0</span> parameter tampil)
+                </button>
+                <?php endif; ?>
+            </div>
+            <p class="text-xs text-slate-600 flex items-center gap-1.5">
+                <i data-lucide="info" class="w-3.5 h-3.5 text-sky-700"></i>
+                Tarif diatur per kelompok tarif. Parameter yang sudah bertarif otomatis muncul sebagai pilihan di formulir Pendaftaran (Uji Sampel Lingkungan).
+                <span id="env-unpriced" class="font-bold text-amber-700"></span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto p-2">
+            <table class="w-full text-left text-[11px]">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700">Kode</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700">Parameter</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700">Tipe Sampel</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700">Satuan / Metode</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700 text-right">Tarif</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700 text-center w-24">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="env-tariff-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+
+        <!-- Paket Uji Lingkungan -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900">Paket Uji Lingkungan</h3>
+                <p class="text-xs text-slate-500">Kumpulan parameter dengan satu harga, mis. paket air minum. Mengikuti filter tipe sampel &amp; kelompok tarif di atas.</p>
+            </div>
+            <?php if ($can_create): ?>
+            <button type="button" onclick="openEnvPackageModal(null)" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-all flex items-center gap-1.5 whitespace-nowrap">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah Paket
+            </button>
+            <?php endif; ?>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto p-2">
+            <table class="w-full text-left text-[11px]">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700">Kode</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700">Nama Paket</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700">Tipe Sampel</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700 text-center">Parameter</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700 text-right">Tarif</th>
+                        <th class="px-3 py-2.5 font-semibold text-slate-700 text-center w-32">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="env-package-body" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- AKHIR TAB 4 -->
 
 </div>
 
@@ -1012,6 +1095,89 @@
     </div>
 </div>
 
+<!-- MODAL: PAKET UJI LINGKUNGAN -->
+<div id="modal-env-package" class="lis-modal">
+    <div class="lis-modal-box max-w-3xl">
+        <div class="lis-modal-header bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 border-b border-amber-400/30">
+            <div>
+                <h3 class="lis-modal-title"><i data-lucide="package" class="w-5 h-5 text-amber-300"></i><span id="pk-title">Paket Uji Lingkungan</span></h3>
+                <p class="lis-modal-subtitle" id="pk-sub"></p>
+            </div>
+            <button type="button" onclick="closeEnvPackageModal()" class="lis-modal-close"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="lis-modal-body p-5 space-y-4 bg-white overflow-y-auto" style="max-height:70vh">
+            <input type="hidden" id="pk-id">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div><label class="lis-form-label">Nama Paket <span class="req">*</span></label><input type="text" id="pk-name" class="lis-input" placeholder="Paket Air Minum Permenkes 2/2023"></div>
+                <div><label class="lis-form-label">Tipe Sampel <span class="req">*</span></label><select id="pk-type" onchange="loadPackageParams([])" class="lis-input"></select></div>
+                <div class="sm:col-span-2"><label class="lis-form-label">Keterangan</label><input type="text" id="pk-desc" class="lis-input" placeholder="Opsional"></div>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label class="lis-form-label mb-0">Parameter dalam paket (<span id="pk-count">0</span> dipilih)</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="pk-search" oninput="filterPackageParams()" placeholder="Cari..." class="lis-input text-xs py-1 px-2 w-32" autocomplete="off">
+                        <button type="button" onclick="togglePackageAll(true)" class="text-[10px] font-bold text-emerald-700 hover:underline">Pilih semua</button>
+                        <button type="button" onclick="togglePackageAll(false)" class="text-[10px] font-bold text-rose-600 hover:underline">Kosongkan</button>
+                    </div>
+                </div>
+                <div id="pk-params" class="border border-slate-200 rounded-xl max-h-56 overflow-y-auto divide-y divide-slate-100 text-xs"></div>
+            </div>
+
+            <div class="p-3 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-emerald-900">Tarif paket - kelompok <span id="pk-group-name"></span></span>
+                    <span id="pk-total" class="font-mono font-black text-emerald-800">Rp 0</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div><label class="lis-form-label">Manajemen</label><input type="number" min="0" step="500" id="pk-jm" oninput="calcPackageTotal()" class="lis-input font-mono"></div>
+                    <div><label class="lis-form-label">Dokter/PJ</label><input type="number" min="0" step="500" id="pk-jd" oninput="calcPackageTotal()" class="lis-input font-mono"></div>
+                    <div><label class="lis-form-label">Petugas</label><input type="number" min="0" step="500" id="pk-jp" oninput="calcPackageTotal()" class="lis-input font-mono"></div>
+                    <div><label class="lis-form-label">KSO</label><input type="number" min="0" step="500" id="pk-kso" oninput="calcPackageTotal()" class="lis-input font-mono"></div>
+                    <div><label class="lis-form-label">BHP</label><input type="number" min="0" step="500" id="pk-bhp" oninput="calcPackageTotal()" class="lis-input font-mono"></div>
+                </div>
+                <p class="text-[11px] text-slate-500">Paket baru tampil di Pendaftaran setelah tarifnya diisi. Kelompok tarif lain diatur dengan mengganti filter kelompok lalu membuka paket ini lagi.</p>
+            </div>
+        </div>
+        <div class="lis-modal-footer px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <button type="button" onclick="closeEnvPackageModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100">Batal</button>
+            <button type="button" id="pk-save-btn" onclick="saveEnvPackage()" class="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold">Simpan Paket</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ATUR TARIF PARAMETER LINGKUNGAN -->
+<div id="modal-env-tarif" class="lis-modal">
+    <div class="lis-modal-box max-w-lg">
+        <div class="lis-modal-header bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 border-b border-amber-400/30">
+            <div>
+                <h3 class="lis-modal-title"><i data-lucide="droplets" class="w-5 h-5 text-amber-300"></i><span id="env-modal-title">Atur Tarif</span></h3>
+                <p class="lis-modal-subtitle" id="env-modal-sub"></p>
+            </div>
+            <button type="button" onclick="closeEnvTariffModal()" class="lis-modal-close"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="lis-modal-body p-5 space-y-3 bg-white">
+            <div id="env-modal-warn" class="hidden p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-[11px] text-amber-900"></div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="lis-form-label">Jasa Manajemen</label><input type="number" min="0" step="500" id="env-t-jm" oninput="calcEnvTotal()" class="lis-input font-mono"></div>
+                <div><label class="lis-form-label">Jasa Dokter / Penanggung Jawab</label><input type="number" min="0" step="500" id="env-t-jd" oninput="calcEnvTotal()" class="lis-input font-mono"></div>
+                <div><label class="lis-form-label">Jasa Petugas / Analis</label><input type="number" min="0" step="500" id="env-t-jp" oninput="calcEnvTotal()" class="lis-input font-mono"></div>
+                <div><label class="lis-form-label">KSO</label><input type="number" min="0" step="500" id="env-t-kso" oninput="calcEnvTotal()" class="lis-input font-mono"></div>
+                <div class="col-span-2"><label class="lis-form-label">BHP (bahan habis pakai)</label><input type="number" min="0" step="500" id="env-t-bhp" oninput="calcEnvTotal()" class="lis-input font-mono"></div>
+            </div>
+            <div class="flex justify-between items-center p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                <span class="text-xs font-bold text-emerald-900">Total Tarif</span>
+                <span id="env-t-total" class="font-mono font-black text-emerald-800 text-lg">Rp 0</span>
+            </div>
+        </div>
+        <div class="lis-modal-footer px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <button type="button" onclick="closeEnvTariffModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100">Batal</button>
+            <button type="button" id="env-save-btn" onclick="saveEnvTariff()" class="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold">Simpan Tarif</button>
+        </div>
+    </div>
+</div>
+
 <!-- JAVASCRIPT LOGIC & DATATABLES SERVER-SIDE -->
 <script>
 let tableParam = null;
@@ -1024,6 +1190,285 @@ document.addEventListener('DOMContentLoaded', () => {
     loadLabSummary();
     switchTab(currentTab);
 });
+
+// ==========================================
+// TARIF PARAMETER UJI LINGKUNGAN
+// ==========================================
+let envRows = [];
+let envTypesLoaded = false;
+let envTimer = null;
+let envEditId = null;   // null = massal
+
+function escEnv(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function loadEnvTariffsDebounced() {
+    clearTimeout(envTimer);
+    envTimer = setTimeout(loadEnvTariffs, 250);
+}
+
+function loadEnvTariffs() {
+    const group = document.getElementById('env-filter-group').value;
+    const type = document.getElementById('env-filter-type').value;
+    const q = document.getElementById('env-filter-q').value.trim();
+    const url = '<?= site_url('tarif/fetch_env_parameters') ?>?tariff_group=' + encodeURIComponent(group)
+        + '&sample_type_id=' + encodeURIComponent(type) + '&q=' + encodeURIComponent(q);
+
+    fetch(url).then(r => r.json()).then(res => {
+        if (res.status !== 'success') return;
+        if (!envTypesLoaded && res.sample_types) {
+            const sel = document.getElementById('env-filter-type');
+            res.sample_types.forEach(t => { sel.insertAdjacentHTML('beforeend', '<option value="' + t.id + '">' + escEnv(t.name) + '</option>'); });
+            envTypesLoaded = true;
+        }
+        envRows = res.data;
+        renderEnvTariffs();
+        loadEnvPackages();
+    });
+}
+
+function renderEnvTariffs() {
+    const body = document.getElementById('env-tariff-body');
+    const canEdit = <?= !empty($can_edit) ? 'true' : 'false' ?>;
+    document.getElementById('env-bulk-count') && (document.getElementById('env-bulk-count').textContent = envRows.length);
+    const unpriced = envRows.filter(r => !Number(r.has_tariff) || Number(r.total_tarif) <= 0).length;
+    document.getElementById('env-unpriced').textContent = unpriced ? '(' + unpriced + ' parameter belum bertarif)' : '';
+
+    if (!envRows.length) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">Tidak ada parameter lingkungan untuk filter ini.</td></tr>';
+        return;
+    }
+    body.innerHTML = envRows.map(r => {
+        const priced = Number(r.has_tariff) && Number(r.total_tarif) > 0;
+        return '<tr class="hover:bg-slate-50/70">'
+            + '<td class="px-3 py-2 font-mono text-emerald-800">' + escEnv(r.param_code) + '</td>'
+            + '<td class="px-3 py-2 font-semibold text-slate-800">' + escEnv(r.param_name) + '<span class="block text-[10px] text-slate-400 uppercase">' + escEnv(r.sub_category) + '</span></td>'
+            + '<td class="px-3 py-2 text-slate-600">' + escEnv(r.sample_type_name) + '</td>'
+            + '<td class="px-3 py-2 text-slate-500">' + escEnv(r.unit || '-') + (r.method_default ? '<span class="block text-[10px] text-slate-400">' + escEnv(r.method_default) + '</span>' : '') + '</td>'
+            + '<td class="px-3 py-2 text-right">' + (priced ? '<span class="font-mono font-bold text-slate-900">' + formatRupiah(r.total_tarif) + '</span>'
+                : '<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-[10px] font-bold">Belum diatur</span>') + '</td>'
+            + '<td class="px-3 py-2 text-center">' + (canEdit ? '<button type="button" onclick="openEnvTariffModal(' + Number(r.id) + ')" class="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-emerald-700 hover:text-white text-slate-700 text-[10px] font-bold">Atur</button>' : '') + '</td>'
+            + '</tr>';
+    }).join('');
+}
+
+function calcEnvTotal() {
+    const v = id => parseFloat(document.getElementById(id).value) || 0;
+    document.getElementById('env-t-total').textContent = formatRupiah(v('env-t-jm') + v('env-t-jd') + v('env-t-jp') + v('env-t-kso') + v('env-t-bhp'));
+}
+
+function openEnvTariffModal(id) {
+    envEditId = id;
+    const group = document.getElementById('env-filter-group');
+    const groupName = group.options[group.selectedIndex].text;
+    const warn = document.getElementById('env-modal-warn');
+    const set = (k, v) => { document.getElementById(k).value = v; };
+
+    if (id === null) {
+        if (!envRows.length) { LIS.alert('Peringatan', 'Tidak ada parameter yang tampil untuk diatur.', 'warning'); return; }
+        document.getElementById('env-modal-title').textContent = 'Atur Tarif Massal';
+        document.getElementById('env-modal-sub').textContent = envRows.length + ' parameter tampil - kelompok ' + groupName;
+        warn.textContent = 'Tarif ini akan MENIMPA tarif ' + envRows.length + ' parameter yang sedang tampil pada kelompok ' + groupName + '. Gunakan filter tipe sampel / pencarian untuk mempersempit.';
+        warn.classList.remove('hidden');
+        ['jm','jd','jp','kso','bhp'].forEach(k => set('env-t-' + k, ''));
+    } else {
+        const r = envRows.find(x => Number(x.id) === Number(id));
+        if (!r) return;
+        document.getElementById('env-modal-title').textContent = r.param_name;
+        document.getElementById('env-modal-sub').textContent = r.sample_type_name + ' - ' + r.param_code + ' - kelompok ' + groupName;
+        warn.classList.add('hidden');
+        set('env-t-jm', Number(r.jasa_manajemen) || ''); set('env-t-jd', Number(r.jasa_dokter) || '');
+        set('env-t-jp', Number(r.jasa_petugas) || ''); set('env-t-kso', Number(r.kso) || ''); set('env-t-bhp', Number(r.bhp) || '');
+    }
+    calcEnvTotal();
+    document.getElementById('modal-env-tarif').classList.add('flex');
+    lucide.createIcons();
+}
+
+function closeEnvTariffModal() {
+    document.getElementById('modal-env-tarif').classList.remove('flex');
+}
+
+function saveEnvTariff() {
+    const fd = new FormData();
+    fd.append('tariff_group', document.getElementById('env-filter-group').value);
+    if (envEditId === null) { envRows.forEach(r => fd.append('param_ids[]', r.id)); }
+    else { fd.append('param_id', envEditId); }
+    fd.append('jasa_manajemen', document.getElementById('env-t-jm').value || 0);
+    fd.append('jasa_dokter', document.getElementById('env-t-jd').value || 0);
+    fd.append('jasa_petugas', document.getElementById('env-t-jp').value || 0);
+    fd.append('kso', document.getElementById('env-t-kso').value || 0);
+    fd.append('bhp', document.getElementById('env-t-bhp').value || 0);
+
+    const total = ['jm','jd','jp','kso','bhp'].reduce((a, k) => a + (parseFloat(document.getElementById('env-t-' + k).value) || 0), 0);
+    if (total <= 0) { LIS.alert('Peringatan', 'Total tarif harus lebih dari 0.', 'warning'); return; }
+
+    const btn = document.getElementById('env-save-btn');
+    btn.disabled = true;
+    fetch('<?= site_url('tarif/save_env_tariff') ?>', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success') { closeEnvTariffModal(); LIS.toast('success', res.message); loadEnvTariffs(); }
+            else { LIS.alert('Gagal', res.message || 'Tarif tidak dapat disimpan.', 'error'); }
+        })
+        .catch(() => LIS.alert('Error', 'Terjadi kesalahan jaringan.', 'error'))
+        .finally(() => { btn.disabled = false; });
+}
+
+// ---- Paket uji lingkungan ----
+let envPkgRows = [];
+let pkSelected = new Set();
+let pkParams = [];
+
+function loadEnvPackages() {
+    const url = '<?= site_url('tarif/fetch_env_packages') ?>?tariff_group=' + encodeURIComponent(document.getElementById('env-filter-group').value)
+        + '&sample_type_id=' + encodeURIComponent(document.getElementById('env-filter-type').value)
+        + '&q=' + encodeURIComponent(document.getElementById('env-filter-q').value.trim());
+    fetch(url).then(r => r.json()).then(res => {
+        if (res.status !== 'success') return;
+        envPkgRows = res.data;
+        renderEnvPackages();
+    });
+}
+
+function renderEnvPackages() {
+    const body = document.getElementById('env-package-body');
+    const canEdit = <?= !empty($can_edit) ? 'true' : 'false' ?>;
+    const canDelete = <?= !empty($can_delete) ? 'true' : 'false' ?>;
+    if (!envPkgRows.length) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-slate-400">Belum ada paket untuk filter ini.</td></tr>';
+        return;
+    }
+    body.innerHTML = envPkgRows.map(k => {
+        const priced = Number(k.has_tariff) && Number(k.total_tarif) > 0;
+        const names = (k.items || []).map(i => i.param_name).join(', ');
+        return '<tr class="hover:bg-slate-50/70">'
+            + '<td class="px-3 py-2 font-mono text-emerald-800">' + escEnv(k.package_code) + '</td>'
+            + '<td class="px-3 py-2 font-semibold text-slate-800">' + escEnv(k.package_name) + '<span class="block text-[10px] text-slate-400 font-normal truncate max-w-md" title="' + escEnv(names) + '">' + escEnv(names) + '</span></td>'
+            + '<td class="px-3 py-2 text-slate-600">' + escEnv(k.sample_type_name) + '</td>'
+            + '<td class="px-3 py-2 text-center">' + (k.items || []).length + '</td>'
+            + '<td class="px-3 py-2 text-right">' + (priced ? '<span class="font-mono font-bold text-slate-900">' + formatRupiah(k.total_tarif) + '</span>'
+                : '<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-[10px] font-bold">Belum diatur</span>') + '</td>'
+            + '<td class="px-3 py-2 text-center whitespace-nowrap">'
+            + (canEdit ? '<button type="button" onclick="openEnvPackageModal(' + Number(k.id) + ')" class="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-emerald-700 hover:text-white text-slate-700 text-[10px] font-bold">Ubah</button> ' : '')
+            + (canDelete ? '<button type="button" onclick="deleteEnvPackage(' + Number(k.id) + ')" class="px-2.5 py-1 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-600 hover:text-white text-[10px] font-bold">Hapus</button>' : '')
+            + '</td></tr>';
+    }).join('');
+}
+
+function calcPackageTotal() {
+    const v = id => parseFloat(document.getElementById(id).value) || 0;
+    document.getElementById('pk-total').textContent = formatRupiah(v('pk-jm') + v('pk-jd') + v('pk-jp') + v('pk-kso') + v('pk-bhp'));
+}
+
+function updatePackageCount() {
+    document.getElementById('pk-count').textContent = pkSelected.size;
+}
+
+function renderPackageParams() {
+    const q = document.getElementById('pk-search').value.toLowerCase().trim();
+    const box = document.getElementById('pk-params');
+    const list = pkParams.filter(p => !q || p.param_name.toLowerCase().includes(q) || p.param_code.toLowerCase().includes(q));
+    if (!list.length) { box.innerHTML = '<div class="p-4 text-center text-slate-400">Tidak ada parameter.</div>'; return; }
+    box.innerHTML = list.map(p =>
+        '<label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-slate-50 cursor-pointer">'
+        + '<input type="checkbox" value="' + p.id + '" ' + (pkSelected.has(Number(p.id)) ? 'checked' : '') + ' onchange="togglePackageParam(this)" class="rounded text-emerald-700">'
+        + '<span class="flex-1"><span class="font-semibold text-slate-800">' + escEnv(p.param_name) + '</span> <span class="font-mono text-[10px] text-slate-400">' + escEnv(p.param_code) + '</span></span>'
+        + '<span class="text-[10px] text-slate-400 uppercase">' + escEnv(p.sub_category) + '</span></label>'
+    ).join('');
+}
+
+function togglePackageParam(cb) {
+    const id = Number(cb.value);
+    if (cb.checked) pkSelected.add(id); else pkSelected.delete(id);
+    updatePackageCount();
+}
+
+function togglePackageAll(on) {
+    const q = document.getElementById('pk-search').value.toLowerCase().trim();
+    pkParams.filter(p => !q || p.param_name.toLowerCase().includes(q) || p.param_code.toLowerCase().includes(q))
+        .forEach(p => { if (on) pkSelected.add(Number(p.id)); else pkSelected.delete(Number(p.id)); });
+    renderPackageParams();
+    updatePackageCount();
+}
+
+function filterPackageParams() { renderPackageParams(); }
+
+// Muat daftar parameter sesuai tipe sampel terpilih; keep = id parameter yang tetap tercentang
+function loadPackageParams(keep) {
+    const typeId = document.getElementById('pk-type').value;
+    pkSelected = new Set((keep || []).map(Number));
+    updatePackageCount();
+    if (!typeId) { pkParams = []; renderPackageParams(); return Promise.resolve(); }
+    return fetch('<?= site_url('tarif/fetch_env_parameters') ?>?tariff_group=umum&sample_type_id=' + encodeURIComponent(typeId))
+        .then(r => r.json()).then(res => { pkParams = res.data || []; renderPackageParams(); });
+}
+
+function openEnvPackageModal(id) {
+    const typeSel = document.getElementById('pk-type');
+    const types = [...document.getElementById('env-filter-type').options].filter(o => o.value);
+    typeSel.innerHTML = types.map(o => '<option value="' + o.value + '">' + escEnv(o.text) + '</option>').join('');
+    const grp = document.getElementById('env-filter-group');
+    document.getElementById('pk-group-name').textContent = grp.options[grp.selectedIndex].text;
+    document.getElementById('pk-search').value = '';
+
+    const k = id ? envPkgRows.find(x => Number(x.id) === Number(id)) : null;
+    document.getElementById('pk-id').value = k ? k.id : '';
+    document.getElementById('pk-title').textContent = k ? 'Ubah ' + k.package_name : 'Tambah Paket Uji Lingkungan';
+    document.getElementById('pk-sub').textContent = k ? k.package_code : 'Kode dibuat otomatis';
+    document.getElementById('pk-name').value = k ? k.package_name : '';
+    document.getElementById('pk-desc').value = k ? (k.description || '') : '';
+    const preType = k ? k.sample_type_id : (document.getElementById('env-filter-type').value || (types[0] ? types[0].value : ''));
+    typeSel.value = preType;
+    const set = (key, v) => { document.getElementById(key).value = v || ''; };
+    set('pk-jm', k && Number(k.jasa_manajemen)); set('pk-jd', k && Number(k.jasa_dokter));
+    set('pk-jp', k && Number(k.jasa_petugas)); set('pk-kso', k && Number(k.kso)); set('pk-bhp', k && Number(k.bhp));
+    calcPackageTotal();
+
+    loadPackageParams(k ? (k.items || []).map(i => i.id) : []);
+    document.getElementById('modal-env-package').classList.add('flex');
+    lucide.createIcons();
+}
+
+function closeEnvPackageModal() {
+    document.getElementById('modal-env-package').classList.remove('flex');
+}
+
+function saveEnvPackage() {
+    const name = document.getElementById('pk-name').value.trim();
+    if (!name) { LIS.alert('Peringatan', 'Nama paket wajib diisi.', 'warning'); return; }
+    if (pkSelected.size === 0) { LIS.alert('Peringatan', 'Pilih minimal 1 parameter.', 'warning'); return; }
+
+    const fd = new FormData();
+    fd.append('id', document.getElementById('pk-id').value);
+    fd.append('package_name', name);
+    fd.append('sample_type_id', document.getElementById('pk-type').value);
+    fd.append('description', document.getElementById('pk-desc').value.trim());
+    fd.append('tariff_group', document.getElementById('env-filter-group').value);
+    pkSelected.forEach(pid => fd.append('param_ids[]', pid));
+    [['jasa_manajemen','pk-jm'],['jasa_dokter','pk-jd'],['jasa_petugas','pk-jp'],['kso','pk-kso'],['bhp','pk-bhp']]
+        .forEach(([f, el]) => fd.append(f, document.getElementById(el).value || 0));
+
+    const btn = document.getElementById('pk-save-btn');
+    btn.disabled = true;
+    fetch('<?= site_url('tarif/save_env_package') ?>', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success') { closeEnvPackageModal(); LIS.toast('success', res.message); loadEnvPackages(); }
+            else { LIS.alert('Gagal', res.message || 'Paket tidak dapat disimpan.', 'error'); }
+        })
+        .catch(() => LIS.alert('Error', 'Terjadi kesalahan jaringan.', 'error'))
+        .finally(() => { btn.disabled = false; });
+}
+
+function deleteEnvPackage(id) {
+    Swal.fire({ title: 'Hapus paket?', text: 'Paket beserta tarifnya dihapus. Pendaftaran lama tidak terpengaruh.', icon: 'warning',
+        showCancelButton: true, confirmButtonColor: '#e11d48', confirmButtonText: 'Ya, Hapus', cancelButtonText: 'Batal'
+    }).then(r => {
+        if (!r.isConfirmed) return;
+        fetch('<?= site_url('tarif/delete_env_package') ?>/' + id, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(x => x.json()).then(res => { LIS.toast('success', res.message); loadEnvPackages(); });
+    });
+}
 
 // Format Rupiah
 function formatRupiah(amount) {
@@ -1051,7 +1496,7 @@ function loadLabSummary() {
 // ==========================================
 function switchTab(tab) {
     currentTab = tab;
-    ['parameter', 'template', 'metode'].forEach(t => {
+    ['parameter', 'template', 'metode', 'lingkungan'].forEach(t => {
         const btn = document.getElementById('btn-tab-' + t);
         const content = document.getElementById('tab-content-' + t);
         if (t === tab) {
@@ -1072,6 +1517,8 @@ function switchTab(tab) {
     } else if (tab === 'metode') {
         if (!tableMethod) initTableMethods();
         else tableMethod.ajax.reload(null, false);
+    } else if (tab === 'lingkungan') {
+        loadEnvTariffs();
     }
 
     setTimeout(() => lucide.createIcons(), 150);

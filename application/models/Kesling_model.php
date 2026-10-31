@@ -64,14 +64,87 @@ class Kesling_model extends CI_Model {
         }
         foreach ($params as &$p) {
             $p['thresholds'] = [];
+            $p['threshold_rows'] = [];
             foreach ($standards as $s) {
                 $sid = (int)$s['id'];
                 $pid = (int)$p['id'];
-                $p['thresholds'][$sid] = isset($thrByStd[$sid][$pid]) ? $thrByStd[$sid][$pid]['threshold_display'] : NULL;
+                $row = isset($thrByStd[$sid][$pid]) ? $thrByStd[$sid][$pid] : NULL;
+                $p['thresholds'][$sid] = $row ? $row['threshold_display'] : NULL;
+                $p['threshold_rows'][$sid] = $row;
             }
         }
         unset($p);
         return ['standards' => $standards, 'parameters' => $params];
+    }
+
+    public function get_parameter($id) {
+        return $this->db->where('id', (int)$id)->get('env_parameters')->row_array();
+    }
+
+    public function save_parameter($data, $id = 0) {
+        $id = (int)$id;
+        if ($id > 0) {
+            $this->db->where('id', $id)->update('env_parameters', $data);
+            return $id;
+        }
+        $this->db->insert('env_parameters', $data);
+        return (int)$this->db->insert_id();
+    }
+
+    public function delete_parameter($id) {
+        return $this->db->where('id', (int)$id)->delete('env_parameters');
+    }
+
+    public function save_standard($data, $id = 0) {
+        $id = (int)$id;
+        if ($id > 0) {
+            $this->db->where('id', $id)->update('env_standards', $data);
+            return $id;
+        }
+        $this->db->insert('env_standards', $data);
+        return (int)$this->db->insert_id();
+    }
+
+    public function delete_standard($id) {
+        return $this->db->where('id', (int)$id)->delete('env_standards');
+    }
+
+    public function get_threshold($standardId, $parameterId) {
+        return $this->db
+            ->where('standard_id', (int)$standardId)
+            ->where('parameter_id', (int)$parameterId)
+            ->get('env_thresholds')
+            ->row_array();
+    }
+
+    public function save_threshold($standardId, $parameterId, $data) {
+        $existing = $this->get_threshold($standardId, $parameterId);
+        if ($existing) {
+            return $this->db->where('id', (int)$existing['id'])->update('env_thresholds', $data);
+        }
+        $data['standard_id'] = (int)$standardId;
+        $data['parameter_id'] = (int)$parameterId;
+        return $this->db->insert('env_thresholds', $data);
+    }
+
+    public function delete_threshold($standardId, $parameterId) {
+        return $this->db
+            ->where('standard_id', (int)$standardId)
+            ->where('parameter_id', (int)$parameterId)
+            ->delete('env_thresholds');
+    }
+
+    /**
+     * Token HMAC-SHA256 16 karakter hex untuk QR verifikasi publik LHU Kesling.
+     */
+    public function verification_token($orderId, $orderNumber) {
+        $secret = (string)($this->config->item('encryption_key') ?: 'lispro-default-key');
+        $msg = 'kesling|' . (int)$orderId . '|' . trim((string)$orderNumber);
+        return substr(hash_hmac('sha256', $msg, $secret), 0, 16);
+    }
+
+    public function get_minimal_for_verify($orderId) {
+        return $this->get_order((int)$orderId);
     }
 
     // =====================================================================
@@ -167,7 +240,7 @@ class Kesling_model extends CI_Model {
         $this->db->join('env_standards s', 's.id = o.standard_id', 'left');
         $this->db->select('o.*, st.name AS sample_type_name, s.code AS standard_code, s.name AS standard_name');
 
-        $recordsTotal = $this->db->count_all_results('env_orders', FALSE);
+        $recordsTotal = $this->db->count_all_results('', FALSE);
 
         if ($status !== 'all' && $status !== '') {
             $this->db->where('o.status', $status);
@@ -197,7 +270,9 @@ class Kesling_model extends CI_Model {
         $this->db->from('env_orders o');
         $this->db->join('env_sample_types st', 'st.id = o.sample_type_id', 'left');
         $this->db->join('env_standards s', 's.id = o.standard_id', 'left');
-        $this->db->select('o.*, st.name AS sample_type_name, s.code AS standard_code, s.name AS standard_name, s.regulation_ref');
+        $this->db->join('pendaftaran pd', 'pd.id = o.pendaftaran_id', 'left');
+        $this->db->select('o.*, st.name AS sample_type_name, s.code AS standard_code, s.name AS standard_name, s.regulation_ref,
+            pd.status_pembayaran AS tagihan_status, pd.nomor_registrasi AS tagihan_reg');
         $this->db->where('o.id', (int)$id);
         return $this->db->get()->row_array();
     }
@@ -208,11 +283,182 @@ class Kesling_model extends CI_Model {
     }
 
     public function update_order($id, $data) {
-        return $this->db->where('id', (int)$id)->update('env_orders', $data);
+        $ok = $this->db->where('id', (int)$id)->update('env_orders', $data);
+        if (isset($data['status'])) {
+            $this->sync_pendaftaran_status($id);
+        }
+        return $ok;
+    }
+
+    /**
+     * Samakan status_order pendaftaran (tagihan) dengan status order Kesling,
+     * supaya daftar Pendaftaran Uji Lingkungan menampilkan progres yang benar.
+     */
+    public function sync_pendaftaran_status($orderId) {
+        $o = $this->db->select('status, pendaftaran_id')->get_where('env_orders', ['id' => (int)$orderId])->row_array();
+        if (!$o || empty($o['pendaftaran_id'])) return;
+        $map = ['registered' => 'registered', 'sampling' => 'sampling', 'testing' => 'processing',
+                'validasi' => 'validasi', 'completed' => 'completed', 'cancelled' => 'cancelled'];
+        if (!isset($map[$o['status']])) return;
+        $upd = ['status_order' => $map[$o['status']], 'updated_at' => date('Y-m-d H:i:s')];
+        if ($o['status'] === 'completed') $upd['waktu_hasil_selesai'] = date('Y-m-d H:i:s');
+        $this->db->where('id', (int)$o['pendaftaran_id'])->where('status_pembayaran !=', 'CANCELLED')->update('pendaftaran', $upd);
     }
 
     public function delete_order($id) {
         return $this->db->where('id', (int)$id)->delete('env_orders');
+    }
+
+    /**
+     * Buat order Kesling dari pendaftaran kategori 'lingkungan' (form Pendaftaran).
+     * Tagihan sudah ada di pendaftaran, jadi order langsung ditautkan ke sana.
+     * Jenis sampel di luar tipe Kesling (mis. Makanan/Minuman) tidak dibuatkan order.
+     */
+    public function create_from_pendaftaran($reg, $userId = null, array $items = []) {
+        if (!$this->db->table_exists('env_orders')) {
+            return ['status' => 'unavailable'];
+        }
+        if ($this->db->where('pendaftaran_id', (int)$reg['id'])->count_all_results('env_orders') > 0) {
+            return ['status' => 'exists'];
+        }
+
+        $codeBySample = [
+            'Air Minum' => 'AIR_MINUM',
+            'Air Bersih / Higiene Sanitasi' => 'AIR_BERSIH',
+            'Air Limbah' => 'AIR_LIMBAH',
+            'Badan Air (Sungai / Danau)' => 'BADAN_AIR',
+            'Udara' => 'UDARA',
+            'Makanan / Minuman' => 'MAKANAN',
+        ];
+        $code = $codeBySample[$reg['jenis_sampel']] ?? null;
+        $type = $code ? $this->db->get_where('env_sample_types', ['code' => $code])->row_array() : null;
+        if (!$type) {
+            return ['status' => 'no_type'];
+        }
+
+        $names = [];
+        foreach ($items as $it) {
+            $itemType = $it['tipe_item'] ?? '';
+            if ($itemType === 'env_parameter' && !empty($it['nama_item'])) {
+                $names[] = $it['nama_item'];
+            } elseif ($itemType === 'env_package' && !empty($it['nama_item'])) {
+                $inner = !empty($it['param_names']) && is_array($it['param_names']) ? ' [' . implode(', ', $it['param_names']) . ']' : '';
+                $names[] = 'Paket ' . $it['nama_item'] . $inner;
+            }
+        }
+        $notes = trim(($reg['diagnosa_klinis'] ?? '') . ($names ? "\nParameter dipesan (" . count($names) . "): " . implode(', ', $names) : ''));
+
+        // Standar acuan default = baku mutu aktif pertama untuk tipe sampel ini (bisa diganti di Order Lingkungan)
+        $std = $this->db->select('id')->where('sample_type_id', (int)$type['id'])->where('is_active', 1)
+            ->order_by('sort_order', 'ASC')->order_by('id', 'ASC')->limit(1)->get('env_standards')->row_array();
+
+        $numbers = $this->generate_numbers();
+        $this->create_order([
+            'order_number' => $numbers['order_number'],
+            'fpps_number' => $numbers['fpps_number'],
+            'lab_number' => $numbers['lab_number'],
+            'sample_type_id' => (int)$type['id'],
+            'standard_id' => $std ? (int)$std['id'] : null,
+            'customer_name' => $reg['instansi_pengirim'] ?: $reg['nama_pasien'],
+            'customer_address' => $reg['alamat'],
+            'contact_phone' => $reg['telepon'],
+            'sample_description' => $reg['nama_pasien'],
+            'sample_location' => $reg['alamat'],
+            'status' => 'registered',
+            'notes' => $notes !== '' ? $notes : null,
+            'biaya_pengujian' => (float)$reg['total_biaya'],
+            'pendaftaran_id' => (int)$reg['id'],
+            'created_by' => $userId,
+        ]);
+
+        return ['status' => 'created', 'order_number' => $numbers['order_number']];
+    }
+
+    /**
+     * Terbitkan / selaraskan tagihan order lingkungan di tabel pendaftaran
+     * (kategori 'lingkungan') supaya tampil di Antrian Kasir & Closing Harian.
+     * Tagihan yang sudah PAID/GUARANTEED tidak diubah.
+     */
+    public function sync_tagihan($orderId, $userId = null) {
+        $this->load->model('pendaftaran_model');
+        $o = $this->get_order((int)$orderId);
+        if (!$o) {
+            return ['status' => 'none'];
+        }
+
+        $biaya = (float)$o['biaya_pengujian'];
+        $linked = !empty($o['pendaftaran_id']);
+        $nama = $o['sample_description'] ?: ($o['sample_type_name'] . ' - ' . $o['customer_name']);
+
+        if ($linked) {
+            if ($o['tagihan_status'] !== 'UNPAID') {
+                return ['status' => 'locked', 'reg' => $o['tagihan_reg']];
+            }
+            if ($biaya <= 0) {
+                $this->pendaftaran_model->batal_pendaftaran($o['pendaftaran_id'], 'Biaya order lingkungan dikosongkan', $userId, 'Sistem');
+                $this->db->where('id', (int)$orderId)->update('env_orders', ['pendaftaran_id' => null]);
+                return ['status' => 'cancelled'];
+            }
+            $this->db->where('id', (int)$o['pendaftaran_id'])->update('pendaftaran', [
+                'nama_pasien' => $nama,
+                'instansi_pengirim' => $o['customer_name'],
+                'telepon' => $o['contact_phone'] ?: '-',
+                'jenis_sampel' => $o['sample_type_name'],
+                'subtotal_tarif' => $biaya,
+                'total_biaya' => $biaya,
+            ]);
+            // Rincian per parameter (dari form Pendaftaran) dibiarkan; hanya tagihan satu-baris yang disesuaikan
+            if ($this->db->where('pendaftaran_id', (int)$o['pendaftaran_id'])->count_all_results('pendaftaran_detail') === 1) {
+                $this->db->where('pendaftaran_id', (int)$o['pendaftaran_id'])->update('pendaftaran_detail', ['tarif' => $biaya]);
+            }
+            return ['status' => 'updated', 'reg' => $o['tagihan_reg']];
+        }
+
+        if ($biaya <= 0) {
+            return ['status' => 'none'];
+        }
+
+        $this->db->trans_start();
+        $reg = $this->pendaftaran_model->generate_reg_number();
+        $this->db->insert('pendaftaran', [
+            'nomor_registrasi' => $reg,
+            'nomor_billing' => $this->pendaftaran_model->generate_billing_number(),
+            'barcode_sampel' => $this->pendaftaran_model->generate_sample_barcode(),
+            'client_id' => null,
+            'tipe_pasien' => 'perusahaan_lingkungan',
+            'tanggal_pendaftaran' => date('Y-m-d'),
+            'jam_pendaftaran' => date('H:i:s'),
+            'nama_pasien' => $nama,
+            'telepon' => $o['contact_phone'] ?: '-',
+            'alamat' => $o['customer_address'],
+            'instansi_pengirim' => $o['customer_name'],
+            'nomor_surat_pengantar' => $o['order_number'],
+            'kategori_pemeriksaan' => 'lingkungan',
+            'jenis_sampel' => $o['sample_type_name'],
+            'alur_pembayaran' => 'mandiri_langsung',
+            'kelompok_tarif' => 'perusahaan',
+            'subtotal_tarif' => $biaya,
+            'total_biaya' => $biaya,
+            'status_pembayaran' => 'UNPAID',
+            'status_order' => 'registered',
+            'catatan' => 'Tagihan order lingkungan ' . $o['order_number'],
+            'created_by' => $userId,
+        ]);
+        $pid = $this->db->insert_id();
+        $this->db->insert('pendaftaran_detail', [
+            'pendaftaran_id' => $pid,
+            'tipe_item' => 'parameter',
+            'item_id' => 0,
+            'kode_item' => $o['order_number'],
+            'nama_item' => 'Pengujian ' . $o['sample_type_name'] . ' (' . $o['order_number'] . ')',
+            'kategori_lab' => 'Kesehatan Lingkungan',
+            'tarif' => $biaya,
+            'status_pengujian' => 'pending',
+        ]);
+        $this->db->where('id', (int)$orderId)->update('env_orders', ['pendaftaran_id' => $pid]);
+        $this->db->trans_complete();
+
+        return $this->db->trans_status() === FALSE ? ['status' => 'error'] : ['status' => 'created', 'reg' => $reg];
     }
 
     // =====================================================================

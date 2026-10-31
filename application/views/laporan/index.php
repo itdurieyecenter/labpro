@@ -230,7 +230,7 @@
                 <i data-lucide="list" class="w-4 h-4 text-emerald-700"></i>
                 <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">Rincian Data Registrasi Pasien & Billing ID</h3>
             </div>
-            <span class="text-xs text-slate-500 font-medium"><?= count($registrations) ?> Transaksi</span>
+            <span class="text-xs text-slate-500 font-medium"><?= number_format($tot_registrasi) ?> transaksi<?= $tot_registrasi > count($registrations) ? ' &bull; menampilkan ' . count($registrations) . ' terbaru (rekap lengkap lewat Cetak)' : '' ?></span>
         </div>
 
         <div class="p-4 sm:p-5 overflow-x-auto">

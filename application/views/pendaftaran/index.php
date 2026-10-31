@@ -1,6 +1,6 @@
 <?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
 
-<?php $isSampling = !empty($is_sampling_queue); ?>
+<?php $isSampling = !empty($is_sampling_queue); $isLing = !empty($is_lingkungan); ?>
 <div class="space-y-5">
 
     <!-- 1. BREADCRUMB & PAGE HEADER (Clean Melayu Riau Theme) -->
@@ -9,20 +9,20 @@
             <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
                 <a href="<?= site_url('dashboard') ?>" class="hover:text-emerald-700 transition-colors">Dashboard</a>
                 <span>/</span>
-                <span class="text-slate-400">Pelayanan Laboratorium</span>
+                <span class="text-slate-400"><?= $isLing ? 'Kesehatan Lingkungan' : 'Pelayanan Laboratorium' ?></span>
                 <span>/</span>
-                <span class="text-emerald-800 font-semibold"><?= $isSampling ? 'Sampling & Antrian Lab' : 'Pendaftaran & Order LIS' ?></span>
+                <span class="text-emerald-800 font-semibold"><?= $isSampling ? 'Sampling & Antrian Lab' : ($isLing ? 'Pendaftaran Uji Lingkungan' : 'Pendaftaran & Order LIS') ?></span>
             </div>
             <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
                 <span class="p-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                    <i data-lucide="<?= $isSampling ? 'test-tubes' : 'clipboard-signature' ?>" class="w-6 h-6"></i>
+                    <i data-lucide="<?= $isSampling ? 'test-tubes' : ($isLing ? 'building-2' : 'clipboard-signature') ?>" class="w-6 h-6"></i>
                 </span>
-                <span><?= $isSampling ? 'Antrian Pengambilan Sampel & Spesimen Lab' : 'Pendaftaran & Order Pemeriksaan LIS' ?></span>
+                <span><?= $isSampling ? 'Antrian Pengambilan Sampel & Spesimen Lab' : ($isLing ? 'Pendaftaran Uji Lingkungan (Perusahaan / Instansi)' : 'Pendaftaran & Order Pemeriksaan LIS') ?></span>
             </h1>
             <p class="text-xs text-slate-500 mt-1">
                 <?= $isSampling 
                     ? 'Daftar spesimen tervalidasi (PAID & GUARANTEED) siap pengambilan darah / penerimaan sampel pengujian LIS' 
-                    : 'Registrasi pasien mandiri, rujukan faskes, dan sampel mitra lingkungan &bull; Alur Billing & Validasi Pembayaran' ?>
+                    : ($isLing ? 'Registrasi pengujian limbah, air, udara, dan sampel lingkungan lain &bull; Tagihan masuk Kasir, pengerjaan di Kesehatan Lingkungan' : 'Registrasi pasien mandiri, rujukan faskes, dan perusahaan (klinis / MCU) &bull; Alur Billing & Validasi Pembayaran') ?>
             </p>
         </div>
 
@@ -40,7 +40,7 @@
             <?php if (!$isSampling && $can_create): ?>
                 <button type="button" onclick="openOrderModal()" class="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-amber-200 text-xs font-bold flex items-center gap-2 shadow-sm transition-all border border-emerald-600 shadow-emerald-900/10">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                    <span>+ Pendaftaran & Order Baru</span>
+                    <span><?= $isLing ? '+ Pendaftaran Uji Lingkungan' : '+ Pendaftaran & Order Baru' ?></span>
                 </button>
             <?php endif; ?>
         </div>
@@ -101,7 +101,7 @@
     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <!-- Filter Tabs Tipe Pasien -->
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none flex-wrap">
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none flex-wrap <?= $isLing ? 'hidden' : '' ?>">
                 <button type="button" onclick="setFilterType('all')" id="tab-type-all" class="filter-type-tab px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-emerald-700 text-amber-300 shadow-xs flex items-center gap-2">
                     <i data-lucide="layers" class="w-4 h-4"></i>
                     <span>Semua Pendaftaran</span>
@@ -116,7 +116,7 @@
                 </button>
                 <button type="button" onclick="setFilterType('perusahaan_lingkungan')" id="tab-type-perusahaan" class="filter-type-tab px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-2">
                     <i data-lucide="building-2" class="w-4 h-4"></i>
-                    <span>Mitra & Sampel Lingkungan</span>
+                    <span>Perusahaan / Instansi</span>
                 </button>
             </div>
 
@@ -180,16 +180,16 @@
 <!-- ========================================================================= -->
 <!-- MODAL 1: FORMULIR PENDAFTARAN & ORDER LIS BARU                             -->
 <!-- ========================================================================= -->
-<div id="modal-order" class="lis-modal">
-    <div class="lis-modal-box max-w-6xl w-full">
+<div id="modal-order" class="lis-modal" style="padding:0">
+    <div class="lis-modal-box" style="max-width:none;width:100vw;height:100vh;max-height:100vh;border-radius:0;border-width:0">
         <!-- Header Modal -->
-        <div class="lis-modal-header bg-gradient-to-r from-emerald-900 via-emerald-800 to-amber-950 border-b border-amber-400/40">
+        <div class="lis-modal-header bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 border-b border-amber-400/40">
             <div>
                 <h3 class="lis-modal-title text-white">
                     <i data-lucide="clipboard-signature" class="w-5 h-5 text-amber-300"></i>
-                    <span>Formulir Pendaftaran & Order Pemeriksaan LIS</span>
+                    <span id="order-modal-title">Pendaftaran Order Baru</span>
                 </h3>
-                <p class="lis-modal-subtitle">UPT Laboratorium Kesehatan Provinsi Riau &bull; Alur SIMRS & Billing BLUD</p>
+                <p class="lis-modal-subtitle" id="order-modal-sub">Isi berurutan dari atas: Pemohon &rarr; Jenis Layanan &rarr; Data &rarr; Parameter Uji</p>
             </div>
             <button type="button" onclick="closeOrderModal()" class="lis-modal-close" title="Tutup Formulir">
                 <i data-lucide="x" class="w-5 h-5"></i>
@@ -197,278 +197,261 @@
         </div>
 
         <!-- Body Modal -->
-        <div class="lis-modal-body p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-130px)] space-y-5 bg-slate-50/70">
-            <form id="order-form" onsubmit="saveOrder(event)" class="space-y-5">
+        <div class="lis-modal-body p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-50/70">
+            <form id="order-form" onsubmit="saveOrder(event)" class="max-w-7xl mx-auto">
                 <input type="hidden" name="client_id" id="form-client-id">
                 <input type="hidden" name="items_json" id="form-items-json">
+                <input type="hidden" name="tipe_pasien" id="form-tipe-pasien" value="mandiri">
+                <input type="hidden" name="kategori_pemeriksaan" id="form-kategori" value="klinis">
+                <input type="hidden" name="nomor_registrasi" id="form-no-reg">
+                <input type="hidden" name="nomor_billing" id="form-no-billing">
+                <input type="hidden" name="barcode_sampel" id="form-no-barcode">
 
-                <!-- 1. TOP STATUS BAR: IDENTITAS DOKUMEN & KODE RESMI SIMRS -->
-                <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl p-3.5 sm:p-4 border border-slate-700/60 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-500/40 text-amber-300 flex items-center justify-center flex-shrink-0 shadow-inner">
-                            <i data-lucide="file-badge-2" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-bold tracking-wide uppercase text-white">Dokumen Order &amp; Registrasi LIS</span>
-                                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-400/30">Auto SIMRS</span>
-                            </div>
-                            <p class="text-[11px] text-slate-300 mt-0.5">Diterbitkan otomatis &bull; Terkoneksi dengan Kasir Billing BLUD &amp; Barcode Tracking</p>
-                        </div>
-                    </div>
-
-                    <!-- 3 Badges Identifikasi: Satu Baris Proporsional, Rapih, Anti-Potong -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full lg:w-auto">
-                        <!-- 1. No Registrasi -->
-                        <div class="bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2 flex flex-col justify-center min-w-[155px]">
-                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">No. Registrasi</span>
-                            <span id="disp-no-reg" class="font-mono font-bold text-xs text-amber-300 tracking-wide mt-0.5 block truncate">REG-...</span>
-                            <input type="hidden" name="nomor_registrasi" id="form-no-reg">
-                        </div>
-                        <!-- 2. Billing ID -->
-                        <div class="bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2 flex flex-col justify-center min-w-[155px]">
-                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Billing ID</span>
-                            <span id="disp-no-billing" class="font-mono font-bold text-xs text-emerald-300 tracking-wide mt-0.5 block truncate">BIL-...</span>
-                            <input type="hidden" name="nomor_billing" id="form-no-billing">
-                        </div>
-                        <!-- 3. Barcode Sampel -->
-                        <div class="bg-emerald-950/80 border border-emerald-600/50 rounded-xl px-3.5 py-2 flex flex-col justify-center min-w-[155px]">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[9px] font-bold text-emerald-300 uppercase tracking-widest block">Barcode Sampel</span>
-                                <i data-lucide="scan-barcode" class="w-3.5 h-3.5 text-emerald-400"></i>
-                            </div>
-                            <span id="disp-no-barcode" class="font-mono font-bold text-xs text-amber-200 tracking-wide mt-0.5 block truncate">SMP-...</span>
-                            <input type="hidden" name="barcode_sampel" id="form-no-barcode">
-                        </div>
-                    </div>
+                <!-- Kode otomatis: satu baris kecil -->
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 mb-3 px-1">
+                    <span>No. Registrasi <strong id="disp-no-reg" class="font-mono text-slate-800">REG-...</strong></span>
+                    <span>Billing <strong id="disp-no-billing" class="font-mono text-slate-800">BIL-...</strong></span>
+                    <span>Barcode <strong id="disp-no-barcode" class="font-mono text-slate-800">SMP-...</strong></span>
+                    <span class="text-slate-400">(terbit otomatis)</span>
                 </div>
 
-                <!-- 2. CARD: PILIH TIPE REGISTRASI PELAYANAN (LEBAR PENUH & SIMETRIS) -->
-                <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-                    <div>
-                        <div class="flex items-center justify-between mb-3">
-                            <div>
-                                <label class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span>
-                                    Pilih Tipe Registrasi Pelayanan <span class="text-rose-500">*</span>
-                                </label>
-                                <p class="text-[11px] text-slate-500 mt-0.5">Pilih alur pelayanan untuk menentukan tarif dasar dan skema penjaminan laboratorium</p>
-                            </div>
-                            <span class="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60 hidden sm:inline-block">Langkah 1 dari 4</span>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5" id="tipe-pasien-selector">
-                            <!-- 1. Pasien Mandiri -->
-                            <button type="button" onclick="setFormTipe('mandiri')" id="btn-tipe-mandiri" class="relative p-3.5 rounded-xl border-2 border-emerald-700 bg-emerald-50/70 text-emerald-950 text-left transition-all flex items-start gap-3 shadow-xs">
-                                <div id="icon-tipe-mandiri" class="w-10 h-10 rounded-xl bg-emerald-700 text-amber-300 flex items-center justify-center flex-shrink-0 shadow-xs transition-colors">
-                                    <i data-lucide="user" class="w-5 h-5"></i>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center justify-between gap-1">
-                                        <span class="font-bold text-xs text-slate-900 block leading-tight">1. Pasien Mandiri</span>
-                                        <span id="badge-check-mandiri" class="text-emerald-700 flex-shrink-0">
-                                            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-                                        </span>
-                                    </div>
-                                    <span class="text-[11px] text-slate-500 block mt-1 leading-snug">Walk-in umum / perorangan datang langsung ke lab</span>
-                                </div>
-                            </button>
-
-                            <!-- 2. Rujukan Faskes -->
-                            <button type="button" onclick="setFormTipe('rujukan_faskes')" id="btn-tipe-rujukan" class="relative p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50/80 text-slate-700 text-left transition-all flex items-start gap-3">
-                                <div id="icon-tipe-rujukan" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center flex-shrink-0 transition-colors">
-                                    <i data-lucide="stethoscope" class="w-5 h-5"></i>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center justify-between gap-1">
-                                        <span class="font-bold text-xs text-slate-800 block leading-tight">2. Rujukan Faskes</span>
-                                        <span id="badge-check-rujukan" class="text-emerald-700 flex-shrink-0 hidden">
-                                            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-                                        </span>
-                                    </div>
-                                    <span class="text-[11px] text-slate-500 block mt-1 leading-snug">Puskesmas, Rumah Sakit, Klinik, atau Dokter Luar</span>
-                                </div>
-                            </button>
-
-                            <!-- 3. Mitra / Lingkungan -->
-                            <button type="button" onclick="setFormTipe('perusahaan_lingkungan')" id="btn-tipe-perusahaan" class="relative p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50/80 text-slate-700 text-left transition-all flex items-start gap-3">
-                                <div id="icon-tipe-perusahaan" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center flex-shrink-0 transition-colors">
-                                    <i data-lucide="building-2" class="w-5 h-5"></i>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center justify-between gap-1">
-                                        <span class="font-bold text-xs text-slate-800 block leading-tight">3. Mitra / Lingkungan</span>
-                                        <span id="badge-check-perusahaan" class="text-emerald-700 flex-shrink-0 hidden">
-                                            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-                                        </span>
-                                    </div>
-                                    <span class="text-[11px] text-slate-500 block mt-1 leading-snug">PKS Kontrak Perusahaan, MCU, Sampel Air &amp; Limbah</span>
-                                </div>
-                            </button>
-                        </div>
-                        <input type="hidden" name="tipe_pasien" id="form-tipe-pasien" value="mandiri">
-                    </div>
-
-                    <!-- PENCARIAN PASIEN & PERUSAHAAN TERDAFTAR (AUTOCOMPLETE DENGAN RESET & TOMBOL DAFTAR BARU) -->
-                    <div class="pt-3 border-t border-slate-100">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
-                            <label class="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                <i data-lucide="database" class="w-3.5 h-3.5 text-emerald-700"></i>
-                                <span>Cari dari Database Master Klien / Pasien / Perusahaan:</span>
-                            </label>
-                            <span class="text-[10px] text-slate-400">Ketik untuk mencari otomatis, atau klik tombol untuk tambah master klien baru</span>
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            <!-- Relative Wrapper agar dropdown hasil pencarian posisinya tepat di bawah input -->
-                            <div class="relative flex-1" id="patient-search-wrapper">
-                                <input type="text" id="patient-search-input" oninput="searchPatient(this.value)" onfocus="if(this.value.trim().length >= 1) searchPatient(this.value)" placeholder="Ketik Nama Pasien, Faskes Rujukan, Perusahaan Mitra (contoh: MoizCare, Pertamina), NIK, atau No. RM..." class="lis-form-control pl-10 pr-9 text-xs py-2 bg-slate-50/80 focus:bg-white transition-colors font-medium">
-                                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5 pointer-events-none"></i>
-                                <button type="button" onclick="clearPatientSearch()" id="btn-clear-patient-search" class="hidden absolute right-3 top-2 text-slate-400 hover:text-rose-600 transition-colors" title="Bersihkan Pencarian">
-                                    <i data-lucide="x" class="w-4 h-4"></i>
-                                </button>
-
-                                <!-- DROPDOWN HASIL PENCARIAN (TEPAT DI BAWAH INPUT & Z-INDEX TINGGI) -->
-                                <div id="patient-search-results" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border-2 border-emerald-500 rounded-xl shadow-2xl max-h-72 overflow-y-auto z-50 divide-y divide-slate-100"></div>
-                            </div>
-
-                            <!-- Tombol Modal Daftar Klien Baru (Tanpa harus bolak-balik ke menu master client) -->
-                            <button type="button" onclick="openQuickClientModal(document.getElementById('patient-search-input').value.trim())" class="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-amber-200 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all flex-shrink-0 border border-emerald-600" title="Daftarkan Pasien atau Perusahaan Baru Langsung ke Master Client">
-                                <i data-lucide="user-plus" class="w-4 h-4 text-amber-300"></i>
-                                <span>+ Klien / Pasien Baru</span>
-                            </button>
-                        </div>
-                    </div>
+                <!-- Info pendaftaran saat menambah pemeriksaan -->
+                <div id="box-tambah-info" class="hidden mb-4 p-4 rounded-2xl border border-sky-300 bg-sky-50 text-xs text-sky-950 space-y-1">
+                    <div class="font-bold text-sm" id="tambah-info-title"></div>
+                    <div id="tambah-info-detail" class="text-sky-900"></div>
+                    <div class="text-[11px] text-sky-800">Pemeriksaan yang dipilih di bawah ditambahkan ke order ini. Total tagihan dihitung ulang dengan diskon pendaftaran yang sama.</div>
                 </div>
 
-                <!-- 2-COLUMN STRUCTURED LAYOUT -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-                    <!-- KOLOM KIRI (5 Kolom): IDENTITAS PASIEN & RUJUKAN -->
-                    <div class="lg:col-span-5 space-y-4">
-                        <!-- Panel Identitas Pasien / Subjek Uji -->
-                        <div class="lis-section">
+                    <!-- ===================== KOLOM KIRI: ALUR ISIAN ===================== -->
+                    <div class="lg:col-span-8 space-y-4">
+
+                        <!-- LANGKAH 1: PEMOHON -->
+                        <div class="lis-section" id="sec-pemohon">
                             <div class="lis-section-header bg-slate-100/90">
                                 <div class="lis-section-title">
                                     <span class="lis-section-num bg-emerald-700 text-amber-300">1</span>
-                                    <span>Identitas Pasien / Subjek Pemeriksaan</span>
+                                    <span>Siapa pemohonnya?</span>
                                 </div>
-                                <span class="text-[10px] text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Data Klinis</span>
                             </div>
-                            <div class="lis-section-body space-y-3">
+                            <div class="lis-section-body space-y-3.5">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5" id="grp-tipe">
+                                    <button type="button" onclick="setFormTipe('mandiri')" id="btn-tipe-mandiri" class="p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 border-slate-200 bg-white">
+                                        <i data-lucide="user" class="w-5 h-5 text-emerald-700 flex-shrink-0"></i>
+                                        <span>
+                                            <span class="font-bold text-xs text-slate-900 block">Perorangan</span>
+                                            <span class="text-[11px] text-slate-500 block leading-snug">Pasien datang sendiri</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" onclick="setFormTipe('rujukan_faskes')" id="btn-tipe-rujukan" class="p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 border-slate-200 bg-white">
+                                        <i data-lucide="stethoscope" class="w-5 h-5 text-emerald-700 flex-shrink-0"></i>
+                                        <span>
+                                            <span class="font-bold text-xs text-slate-900 block">Rujukan Faskes</span>
+                                            <span class="text-[11px] text-slate-500 block leading-snug">Puskesmas, RS, klinik, dokter</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" onclick="setFormTipe('perusahaan_lingkungan')" id="btn-tipe-perusahaan" class="p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 border-slate-200 bg-white">
+                                        <i data-lucide="building-2" class="w-5 h-5 text-emerald-700 flex-shrink-0"></i>
+                                        <span>
+                                            <span class="font-bold text-xs text-slate-900 block">Perusahaan / Instansi</span>
+                                            <span class="text-[11px] text-slate-500 block leading-snug">Kontrak, MCU, uji sampel</span>
+                                        </span>
+                                    </button>
+                                </div>
+
+                                <!-- Cari master klien -->
                                 <div>
-                                    <label class="lis-form-label">Nama Lengkap Pasien / Nama Subjek <span class="req">*</span></label>
-                                    <input type="text" name="nama_pasien" id="form-nama-pasien" class="lis-form-control font-bold text-slate-900" required placeholder="Nama sesuai identitas resmi">
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-2.5">
-                                    <div>
-                                        <label class="lis-form-label">NIK / KTP</label>
-                                        <input type="text" name="nik_pasien" id="form-nik-pasien" maxlength="20" class="lis-form-control font-mono" placeholder="16 Digit NIK">
+                                    <label class="lis-form-label" id="lbl-cari-klien">Cari data tersimpan (opsional)</label>
+                                    <div class="flex items-center gap-2">
+                                        <div class="relative flex-1" id="patient-search-wrapper">
+                                            <input type="text" id="patient-search-input" oninput="searchPatient(this.value)" onfocus="if(this.value.trim().length >= 1) searchPatient(this.value)" placeholder="Ketik nama / NIK / kode klien..." class="lis-form-control pl-9 pr-9 text-xs" autocomplete="off">
+                                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none"></i>
+                                            <button type="button" onclick="clearPatientSearch()" id="btn-clear-patient-search" class="hidden absolute right-3 top-2 text-slate-400 hover:text-rose-600 transition-colors" title="Bersihkan">
+                                                <i data-lucide="x" class="w-4 h-4"></i>
+                                            </button>
+                                            <div id="patient-search-results" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border-2 border-emerald-500 rounded-xl shadow-2xl max-h-72 overflow-y-auto z-50 divide-y divide-slate-100"></div>
+                                        </div>
+                                        <button type="button" onclick="openQuickClientModal(document.getElementById('patient-search-input').value.trim())" class="px-3 py-2 rounded-xl border border-emerald-700 text-emerald-800 hover:bg-emerald-50 text-xs font-bold flex items-center gap-1.5 whitespace-nowrap">
+                                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                                            <span>Klien Baru</span>
+                                        </button>
                                     </div>
-                                    <div>
-                                        <label class="lis-form-label">No. Rekam Medis (RM)</label>
-                                        <input type="text" name="nomor_rm" id="form-nomor-rm" class="lis-form-control font-mono" placeholder="PSN-2026-XXXX">
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-3 gap-2.5">
-                                    <div>
-                                        <label class="lis-form-label">Gender <span class="req">*</span></label>
-                                        <select name="jenis_kelamin" id="form-gender" class="lis-form-control font-medium">
-                                            <option value="L">Laki-laki (L)</option>
-                                            <option value="P">Perempuan (P)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="lis-form-label">Tgl Lahir</label>
-                                        <input type="date" name="tanggal_lahir" id="form-birth-date" onchange="calculateFormAge(this.value)" class="lis-form-control font-medium">
-                                    </div>
-                                    <div>
-                                        <label class="lis-form-label">Usia (Tahun)</label>
-                                        <input type="number" name="usia_tahun" id="form-usia-tahun" min="0" max="130" class="lis-form-control font-mono font-bold" placeholder="Thn">
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-2 gap-2.5">
-                                    <div>
-                                        <label class="lis-form-label">No. WhatsApp / HP <span class="req">*</span></label>
-                                        <input type="tel" name="telepon" id="form-telepon" class="lis-form-control font-mono font-bold" required placeholder="081234567890">
-                                    </div>
-                                    <div>
-                                        <label class="lis-form-label">Alamat Email</label>
-                                        <input type="email" name="email" id="form-email" class="lis-form-control" placeholder="pasien@email.com">
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="lis-form-label">Alamat Lengkap & Kota/Kabupaten</label>
-                                    <textarea name="alamat" id="form-alamat" rows="2" class="lis-form-control" placeholder="Jl. ..."></textarea>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Panel Rujukan & Keterangan Pengantar -->
-                        <div class="lis-section">
+                        <!-- LANGKAH 2: JENIS LAYANAN (khusus perusahaan) -->
+                        <div class="lis-section" id="sec-layanan" data-tipe="perusahaan_lingkungan">
                             <div class="lis-section-header bg-slate-100/90">
                                 <div class="lis-section-title">
                                     <span class="lis-section-num bg-emerald-700 text-amber-300">2</span>
-                                    <span>Instansi Pengirim & Pengantar Klinis</span>
+                                    <span>Apa yang diperiksa?</span>
+                                </div>
+                            </div>
+                            <div class="lis-section-body">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                    <button type="button" onclick="setLayanan('klinis')" id="btn-layanan-klinis" class="p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 border-slate-200 bg-white">
+                                        <i data-lucide="test-tubes" class="w-5 h-5 text-emerald-700 flex-shrink-0"></i>
+                                        <span>
+                                            <span class="font-bold text-xs text-slate-900 block">Pemeriksaan Klinis</span>
+                                            <span class="text-[11px] text-slate-500 block leading-snug">Darah, urine, dll. per orang</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" onclick="setLayanan('mcu')" id="btn-layanan-mcu" class="p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 border-slate-200 bg-white">
+                                        <i data-lucide="heart-pulse" class="w-5 h-5 text-emerald-700 flex-shrink-0"></i>
+                                        <span>
+                                            <span class="font-bold text-xs text-slate-900 block">Medical Check-Up</span>
+                                            <span class="text-[11px] text-slate-500 block leading-snug">Karyawan perusahaan</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" onclick="setLayanan('lingkungan')" id="btn-layanan-lingkungan" class="p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 border-slate-200 bg-white">
+                                        <i data-lucide="droplets" class="w-5 h-5 text-emerald-700 flex-shrink-0"></i>
+                                        <span>
+                                            <span class="font-bold text-xs text-slate-900 block">Uji Sampel Lingkungan</span>
+                                            <span class="text-[11px] text-slate-500 block leading-snug">Air, limbah, udara, makanan</span>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LANGKAH 3: DATA SUBJEK / SAMPEL -->
+                        <div class="lis-section" id="sec-data">
+                            <div class="lis-section-header bg-slate-100/90">
+                                <div class="lis-section-title">
+                                    <span class="lis-section-num bg-emerald-700 text-amber-300" id="num-data">3</span>
+                                    <span id="title-data">Data pasien</span>
                                 </div>
                             </div>
                             <div class="lis-section-body space-y-3">
-                                <div class="grid grid-cols-2 gap-2.5">
+
+                                <!-- Perusahaan / instansi pengirim -->
+                                <div data-tipe="rujukan_faskes perusahaan_lingkungan">
+                                    <label class="lis-form-label" id="lbl-instansi">Perusahaan / Instansi Pengirim</label>
+                                    <input type="text" name="instansi_pengirim" id="form-instansi-pengirim" class="lis-form-control font-semibold" placeholder="Terisi otomatis bila memilih dari data tersimpan">
+                                </div>
+
+                                <!-- Nama -->
+                                <div>
+                                    <label class="lis-form-label" id="lbl-nama">Nama Lengkap Pasien <span class="req">*</span></label>
+                                    <input type="text" name="nama_pasien" id="form-nama-pasien" class="lis-form-control font-bold text-slate-900" required placeholder="Sesuai identitas resmi">
+                                </div>
+
+                                <!-- Identitas klinis -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" data-layanan="klinis mcu">
                                     <div>
-                                        <label class="lis-form-label">Instansi / Faskes Pengirim</label>
-                                        <input type="text" name="instansi_pengirim" id="form-instansi-pengirim" class="lis-form-control" placeholder="Puskesmas / RS / PT Mitra">
+                                        <label class="lis-form-label">NIK / KTP</label>
+                                        <input type="text" name="nik_pasien" id="form-nik-pasien" maxlength="20" class="lis-form-control font-mono" placeholder="16 digit NIK">
                                     </div>
                                     <div>
-                                        <label class="lis-form-label">Dokter Pengirim</label>
-                                        <input type="text" name="dokter_pengirim" id="form-dokter-pengirim" class="lis-form-control" placeholder="dr. ... Sp.PK">
+                                        <label class="lis-form-label">Tanggal Lahir</label>
+                                        <input type="date" name="tanggal_lahir" id="form-birth-date" onchange="calculateFormAge(this.value)" class="lis-form-control font-medium">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2.5" data-layanan="klinis mcu">
+                                    <div>
+                                        <label class="lis-form-label">Jenis Kelamin <span class="req">*</span></label>
+                                        <select name="jenis_kelamin" id="form-gender" class="lis-form-control font-medium">
+                                            <option value="L">Laki-laki</option>
+                                            <option value="P">Perempuan</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="lis-form-label">Usia (Tahun)</label>
+                                        <input type="number" name="usia_tahun" id="form-usia-tahun" min="0" max="130" class="lis-form-control font-mono font-bold" placeholder="Otomatis dari tgl lahir">
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-2.5">
+                                <!-- Sampel lingkungan -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" data-layanan="lingkungan">
                                     <div>
-                                        <label class="lis-form-label">No. Surat Rujukan / SPK</label>
-                                        <input type="text" name="nomor_surat_pengantar" id="form-no-pengantar" class="lis-form-control font-mono" placeholder="440/PKM/... atau No. SPK">
+                                        <label class="lis-form-label">Jenis Sampel <span class="req">*</span></label>
+                                        <select name="jenis_sampel" id="form-jenis-sampel-env" onchange="syncEnvTypeFilter()" class="lis-form-control font-medium">
+                                            <option value="Air Minum">Air Minum</option>
+                                            <option value="Air Bersih / Higiene Sanitasi">Air Bersih / Higiene Sanitasi</option>
+                                            <option value="Air Limbah">Air Limbah</option>
+                                            <option value="Badan Air (Sungai / Danau)">Badan Air (Sungai / Danau)</option>
+                                            <option value="Udara">Udara</option>
+                                            <option value="Makanan / Minuman">Makanan / Minuman</option>
+                                            <option value="Lainnya">Lainnya</option>
+                                        </select>
                                     </div>
                                     <div>
-                                        <label class="lis-form-label">Jenis Spesimen / Sampel</label>
-                                        <select name="jenis_sampel" id="form-jenis-sampel" class="lis-form-control font-medium">
-                                            <option value="Darah Vena / Serum">Darah Vena / Serum</option>
-                                            <option value="Darah EDTA (Hematologi)">Darah EDTA (Hematologi)</option>
-                                            <option value="Urine Sewaktu / 24 Jam">Urine Sewaktu / 24 Jam</option>
-                                            <option value="Swab Nasofaring / Orofaring">Swab Nasofaring / Orofaring</option>
-                                            <option value="Feses Segar">Feses Segar</option>
-                                            <option value="Air Bersih / Minum">Air Bersih / Minum (Kimia Fisika)</option>
-                                            <option value="Air Limbah Industri">Air Limbah Industri</option>
-                                            <option value="Makanan / Minuman">Makanan / Minuman (Mikrobiologi)</option>
-                                            <option value="Lainnya">Lainnya / Sampel Campuran</option>
-                                        </select>
+                                        <label class="lis-form-label">No. Surat Permohonan</label>
+                                        <input type="text" name="nomor_surat_pengantar" id="form-no-pengantar-env" class="lis-form-control font-mono" placeholder="Nomor surat dari pemohon">
+                                    </div>
+                                </div>
+
+                                <!-- Kontak -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label class="lis-form-label" id="lbl-telepon">No. WhatsApp / HP <span class="req">*</span></label>
+                                        <input type="tel" name="telepon" id="form-telepon" class="lis-form-control font-mono font-bold" required placeholder="081234567890">
+                                    </div>
+                                    <div>
+                                        <label class="lis-form-label">Email</label>
+                                        <input type="email" name="email" id="form-email" class="lis-form-control" placeholder="untuk pengiriman e-Hasil">
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label class="lis-form-label">Diagnosa Awal / Catatan Medis Khusus</label>
-                                    <input type="text" name="diagnosa_klinis" id="form-diagnosa" class="lis-form-control" placeholder="Contoh: Demam H-4, Cek Kolesterol, Uji Baku Mutu Limbah...">
+                                    <label class="lis-form-label" id="lbl-alamat">Alamat</label>
+                                    <textarea name="alamat" id="form-alamat" rows="2" class="lis-form-control" placeholder="Jl. ..."></textarea>
+                                </div>
+
+                                <!-- Data tambahan klinis, dilipat agar form ringkas -->
+                                <details class="rounded-xl border border-slate-200 bg-slate-50/60" data-layanan="klinis mcu">
+                                    <summary class="px-3 py-2 text-xs font-bold text-slate-600 cursor-pointer select-none">Data tambahan (opsional): rekam medis, dokter pengirim, spesimen, diagnosa</summary>
+                                    <div class="p-3 pt-2 space-y-3 border-t border-slate-200">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                            <div>
+                                                <label class="lis-form-label">No. Rekam Medis</label>
+                                                <input type="text" name="nomor_rm" id="form-nomor-rm" class="lis-form-control font-mono" placeholder="PSN-2026-XXXX">
+                                            </div>
+                                            <div>
+                                                <label class="lis-form-label">Jenis Spesimen</label>
+                                                <select name="jenis_sampel" id="form-jenis-sampel" class="lis-form-control font-medium">
+                                                    <option value="Darah Vena / Serum">Darah Vena / Serum</option>
+                                                    <option value="Darah EDTA (Hematologi)">Darah EDTA (Hematologi)</option>
+                                                    <option value="Urine Sewaktu / 24 Jam">Urine Sewaktu / 24 Jam</option>
+                                                    <option value="Swab Nasofaring / Orofaring">Swab Nasofaring / Orofaring</option>
+                                                    <option value="Feses Segar">Feses Segar</option>
+                                                    <option value="Lainnya">Lainnya</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="lis-form-label">Dokter Pengirim</label>
+                                                <input type="text" name="dokter_pengirim" id="form-dokter-pengirim" class="lis-form-control" placeholder="dr. ... Sp.PK">
+                                            </div>
+                                            <div>
+                                                <label class="lis-form-label">No. Surat Rujukan</label>
+                                                <input type="text" name="nomor_surat_pengantar" id="form-no-pengantar" class="lis-form-control font-mono" placeholder="440/PKM/...">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="lis-form-label">Diagnosa Awal / Catatan Klinis</label>
+                                            <input type="text" name="diagnosa_klinis" id="form-diagnosa" class="lis-form-control" placeholder="Contoh: Demam H-4, cek kolesterol">
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <div data-layanan="lingkungan">
+                                    <label class="lis-form-label">Keterangan Sampel / Tujuan Uji</label>
+                                    <input type="text" name="diagnosa_klinis" id="form-diagnosa-env" class="lis-form-control" placeholder="Contoh: Uji baku mutu limbah cair outlet IPAL">
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- KOLOM KANAN (7 Kolom): PEMILIHAN PARAMETER & BILLING BLUD -->
-                    <div class="lg:col-span-7 space-y-4">
-                        
-                        <!-- Panel Pemilihan Parameter & Template Uji di LIS -->
+                        <!-- LANGKAH 4: PARAMETER UJI -->
                         <div class="lis-section">
                             <div class="lis-section-header bg-emerald-50/80 border-b border-emerald-200">
                                 <div class="lis-section-title text-emerald-950">
-                                    <span class="lis-section-num bg-emerald-700 text-amber-300">3</span>
-                                    <span>Pilih Parameter Uji & Paket Pemeriksaan Lab</span>
+                                    <span class="lis-section-num bg-emerald-700 text-amber-300" id="num-uji">4</span>
+                                    <span>Pilih parameter / paket uji</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Tarif:</label>
+                                    <label class="text-[10px] font-bold text-slate-500 uppercase">Tarif</label>
                                     <select name="kelompok_tarif" id="form-kelompok-tarif" onchange="loadTariffsForForm()" class="lis-form-control text-xs h-7 py-0 px-2 w-auto font-bold text-emerald-900 bg-white">
                                         <option value="umum" selected>Umum / Reguler</option>
                                         <option value="perusahaan">Perusahaan Mitra</option>
@@ -479,48 +462,50 @@
                             </div>
 
                             <div class="lis-section-body space-y-3">
-                                <!-- Search Parameter & Category Filter -->
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                    <div>
-                                        <select id="select-category-filter" onchange="filterTariffList()" class="lis-form-control text-xs">
-                                            <option value="">-- Semua Kategori Lab --</option>
-                                            <?php foreach ($categories as $cat): ?>
-                                                <option value="<?= html_escape($cat['category_name']) ?>"><?= html_escape($cat['category_name']) ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                <div class="rounded-xl border border-sky-200 bg-sky-50/50 p-3 space-y-2" data-layanan="lingkungan">
+                                    <p class="text-[11px] text-sky-900 leading-snug">Parameter uji lingkungan bisa dipilih dari katalog bila sudah ada di Master Tarif, atau ditambahkan manual di sini.</p>
+                                    <div class="grid grid-cols-12 gap-2">
+                                        <input type="text" id="man-nama" placeholder="Nama uji / paket (mis. Paket Air Minum Permenkes 2/2023)" class="lis-form-control text-xs col-span-12 sm:col-span-7" autocomplete="off">
+                                        <input type="number" id="man-tarif" min="0" step="1000" placeholder="Tarif (Rp)" class="lis-form-control text-xs font-mono col-span-8 sm:col-span-3">
+                                        <button type="button" onclick="addManualItem()" class="col-span-4 sm:col-span-2 px-3 py-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-xs font-bold">Tambah</button>
                                     </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <select id="select-category-filter" onchange="filterTariffList()" class="lis-form-control text-xs">
+                                        <option value="">Semua kategori</option>
+                                        <?php foreach ($categories as $cat): ?>
+                                            <option value="<?= html_escape($cat['category_name']) ?>"><?= html_escape($cat['category_name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
                                     <div class="relative" id="tariff-search-wrapper">
-                                        <input type="text" id="tariff-search-input" oninput="filterTariffList()" placeholder="Ketik nama tes (misal: Darah Lengkap, Glukosa)..." class="lis-form-control pl-8 pr-7 text-xs">
+                                        <input type="text" id="tariff-search-input" oninput="filterTariffList()" placeholder="Cari nama uji..." class="lis-form-control pl-8 pr-7 text-xs" autocomplete="off">
                                         <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3 pointer-events-none"></i>
                                         <button type="button" id="btn-clear-tariff-search" onclick="clearTariffSearch()" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5" title="Hapus pencarian">
                                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
                                         </button>
-                                        <!-- Autocomplete Suggestions -->
                                         <div id="tariff-search-suggestions" class="hidden absolute z-30 left-0 right-0 mt-1 bg-white rounded-xl shadow-2xl border border-emerald-200 overflow-hidden divide-y divide-slate-100 max-h-56 overflow-y-auto"></div>
                                     </div>
                                 </div>
 
-                                <!-- Box Pilihan Parameter & Template (Daftar Pilihan) -->
                                 <div class="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
                                     <div class="p-2 border-b border-slate-200 bg-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-600">
-                                        <span>Katalog Pemeriksaan Lab Tersedia</span>
-                                        <span class="text-[10px] text-slate-400">Klik [+] untuk menambahkan</span>
+                                        <span>Katalog pemeriksaan</span>
+                                        <span class="text-[10px] text-slate-400 font-normal">Klik untuk menambahkan</span>
                                     </div>
                                     <div id="tariff-catalog-container" class="max-h-48 overflow-y-auto p-2 space-y-1.5 bg-white divide-y divide-slate-100">
                                         <div class="text-center py-4 text-xs text-slate-400">Memuat katalog pemeriksaan...</div>
                                     </div>
                                 </div>
 
-                                <!-- Box Keranjang Uji (Selected Items) -->
                                 <div>
                                     <div class="flex items-center justify-between mb-1.5">
                                         <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                                             <i data-lucide="shopping-cart" class="w-3.5 h-3.5 text-emerald-700"></i>
-                                            Daftar Uji Dipilih (<span id="cart-item-count">0</span> Item)
+                                            Uji dipilih (<span id="cart-item-count">0</span>)
                                         </span>
-                                        <button type="button" onclick="clearCart()" class="text-[10px] text-rose-600 hover:underline">Hapus Semua</button>
+                                        <button type="button" onclick="clearCart()" class="text-[10px] text-rose-600 hover:underline">Hapus semua</button>
                                     </div>
-
                                     <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
                                         <table class="w-full text-xs text-left">
                                             <thead class="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-200">
@@ -528,7 +513,7 @@
                                                     <th class="p-2">Item Pemeriksaan</th>
                                                     <th class="p-2">Kategori</th>
                                                     <th class="p-2 text-right">Tarif (Rp)</th>
-                                                    <th class="p-2 text-center w-8">Aksi</th>
+                                                    <th class="p-2 text-center w-8"></th>
                                                 </tr>
                                             </thead>
                                             <tbody id="cart-table-body" class="divide-y divide-slate-100 text-xs">
@@ -541,103 +526,83 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Panel Alur Pembayaran & Validasi Keuangan BLUD -->
-                        <div class="lis-section">
+                    <!-- ===================== KOLOM KANAN: RINGKASAN & PEMBAYARAN ===================== -->
+                    <div class="lg:col-span-4 space-y-4 lg:sticky lg:top-0 self-start">
+                        <div class="lis-section" id="sec-bayar">
                             <div class="lis-section-header bg-slate-100/90">
                                 <div class="lis-section-title">
-                                    <span class="lis-section-num bg-emerald-700 text-amber-300">4</span>
-                                    <span>Skema Billing & Validasi Pembayaran</span>
+                                    <i data-lucide="wallet" class="w-4 h-4 text-emerald-700"></i>
+                                    <span>Pembayaran</span>
                                 </div>
                             </div>
                             <div class="lis-section-body space-y-3">
-                                <!-- Pilihan 2 Jalur Transaksi Sesuai Diagram -->
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <label class="p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 bg-emerald-50/60 border-emerald-700" id="label-alur-langsung">
-                                        <input type="radio" name="alur_pembayaran" value="mandiri_langsung" checked onchange="toggleAlurPembayaran('mandiri_langsung')" class="mt-0.5 text-emerald-700">
-                                        <div>
-                                            <span class="text-xs font-bold block text-emerald-950">Alur Langsung / Mandiri</span>
-                                            <span class="text-[10px] text-emerald-800/80 block mt-0.5">Bayar di Kasir (Cash/QRIS/Debit) &bull; Status LIS: PAID</span>
-                                        </div>
-                                    </label>
-
-                                    <label class="p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 bg-white border-slate-200" id="label-alur-piutang">
-                                        <input type="radio" name="alur_pembayaran" value="piutang_pks" onchange="toggleAlurPembayaran('piutang_pks')" class="mt-0.5 text-emerald-700">
-                                        <div>
-                                            <span class="text-xs font-bold block text-slate-800">Alur Piutang / PKS Mitra</span>
-                                            <span class="text-[10px] text-slate-500 block mt-0.5">Verifikasi SPK/PKS &bull; Status LIS: GUARANTEED</span>
-                                        </div>
-                                    </label>
-                                </div>
-
-                                <!-- Form Isian PKS Mitra (Terbuka saat piutang_pks) -->
-                                <div id="box-piutang-pks" class="hidden bg-teal-50/60 p-3 rounded-xl border border-teal-200 space-y-2.5 text-xs">
-                                    <div class="font-bold text-teal-950 flex items-center gap-1.5">
-                                        <i data-lucide="file-check" class="w-4 h-4 text-teal-700"></i>
-                                        <span>Data Verifikasi Penjaminan PKS / SPK Mitra</span>
+                                <label class="p-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 bg-emerald-50/60 border-emerald-700" id="label-alur-langsung">
+                                    <input type="radio" name="alur_pembayaran" value="mandiri_langsung" checked onchange="toggleAlurPembayaran('mandiri_langsung')" class="mt-0.5 text-emerald-700">
+                                    <div>
+                                        <span class="text-xs font-bold block text-slate-900">Bayar di Kasir</span>
+                                        <span class="text-[11px] text-slate-500 block leading-snug">Tunai, QRIS, debit, atau transfer</span>
                                     </div>
-                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                        <div>
-                                            <label class="lis-form-label">No. PKS / Kontrak <span class="req">*</span></label>
-                                            <input type="text" name="nomor_pks_spk" id="form-no-pks" class="lis-form-control font-mono font-bold" placeholder="PKS/LABKES/2026/...">
-                                        </div>
-                                        <div>
-                                            <label class="lis-form-label">Instansi Penjamin <span class="req">*</span></label>
-                                            <input type="text" name="instansi_penjamin" id="form-instansi-penjamin" class="lis-form-control font-semibold" placeholder="PT. ... / Dinas ...">
-                                        </div>
-                                        <div>
-                                            <label class="lis-form-label">Nama PIC Mitra</label>
-                                            <input type="text" name="pic_penjamin" id="form-pic-penjamin" class="lis-form-control" placeholder="Nama Koordinator">
-                                        </div>
+                                </label>
+                                <label class="p-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 bg-white border-slate-200" id="label-alur-piutang">
+                                    <input type="radio" name="alur_pembayaran" value="piutang_pks" onchange="toggleAlurPembayaran('piutang_pks')" class="mt-0.5 text-emerald-700">
+                                    <div>
+                                        <span class="text-xs font-bold block text-slate-900">Ditagihkan ke Mitra (PKS)</span>
+                                        <span class="text-[11px] text-slate-500 block leading-snug">Dibayar belakangan oleh perusahaan / instansi</span>
+                                    </div>
+                                </label>
+
+                                <div id="box-piutang-pks" class="hidden bg-teal-50/60 p-3 rounded-xl border border-teal-200 space-y-2.5 text-xs">
+                                    <p class="text-[11px] text-teal-900 leading-snug">Boleh dikosongkan dulu. Kasir bisa melengkapi data penjamin nanti.</p>
+                                    <div>
+                                        <label class="lis-form-label">No. PKS / SPK</label>
+                                        <input type="text" name="nomor_pks_spk" id="form-no-pks" class="lis-form-control font-mono font-bold" placeholder="PKS/LABKES/2026/...">
                                     </div>
                                     <div>
-                                        <label class="lis-form-label">Catatan Penjaminan / No. Surat Pengantar</label>
-                                        <input type="text" name="catatan_penjamin" id="form-catatan-penjamin" class="lis-form-control" placeholder="Tagihan dikirimkan akhir bulan via rekening BLUD...">
+                                        <label class="lis-form-label">Instansi Penjamin</label>
+                                        <input type="text" name="instansi_penjamin" id="form-instansi-penjamin" class="lis-form-control font-semibold" placeholder="PT. ... / Dinas ...">
                                     </div>
-                                </div>
-
-                                <!-- Ringkasan Kalkulasi Billing ID -->
-                                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 text-xs font-mono">
-                                    <div class="flex justify-between text-slate-600">
-                                        <span>Subtotal Tarif Pemeriksaan:</span>
-                                        <span id="disp-subtotal" class="font-bold">Rp 0</span>
+                                    <div>
+                                        <label class="lis-form-label">PIC Mitra</label>
+                                        <input type="text" name="pic_penjamin" id="form-pic-penjamin" class="lis-form-control" placeholder="Nama koordinator">
                                     </div>
-                                    <div class="flex justify-between items-center text-slate-600">
-                                        <span class="flex items-center gap-1">
-                                            Diskon Mitra (%):
-                                            <input type="number" step="0.1" min="0" max="100" name="diskon_persen" id="form-diskon-persen" oninput="calculateBilling()" value="0" class="w-16 h-6 px-1.5 font-mono text-xs border rounded text-right">
-                                        </span>
-                                        <span id="disp-diskon" class="font-bold text-rose-600">- Rp 0</span>
-                                    </div>
-                                    <div class="flex justify-between items-center text-sm font-black text-slate-900 border-t border-slate-200 pt-1.5">
-                                        <span class="font-sans text-xs uppercase tracking-wider text-emerald-900">Total Tagihan Billing ID:</span>
-                                        <span id="disp-total" class="text-base text-emerald-800 font-extrabold">Rp 0</span>
+                                    <div>
+                                        <label class="lis-form-label">Catatan Penagihan</label>
+                                        <input type="text" name="catatan_penjamin" id="form-catatan-penjamin" class="lis-form-control" placeholder="Ditagih akhir bulan...">
                                     </div>
                                 </div>
                             </div>
                         </div>
 
+                        <div class="bg-white rounded-2xl border border-emerald-200 shadow-xs p-4 space-y-3">
+                            <div class="space-y-1.5 text-xs">
+                                <div class="flex justify-between text-slate-600">
+                                    <span>Subtotal</span>
+                                    <span id="disp-subtotal" class="font-mono font-bold">Rp 0</span>
+                                </div>
+                                <div class="flex justify-between items-center text-slate-600" id="row-diskon">
+                                    <span class="flex items-center gap-1">
+                                        Diskon (%)
+                                        <input type="number" step="0.1" min="0" max="100" name="diskon_persen" id="form-diskon-persen" oninput="calculateBilling()" value="0" class="w-16 h-6 px-1.5 font-mono text-xs border rounded-md border-slate-300 focus:border-emerald-600 focus:outline-none">
+                                    </span>
+                                    <span id="disp-diskon" class="font-mono font-bold text-rose-600">- Rp 0</span>
+                                </div>
+                                <div class="flex justify-between items-center border-t border-slate-200 pt-2">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-emerald-900">Total</span>
+                                    <span id="disp-total" class="text-lg text-emerald-800 font-black font-mono">Rp 0</span>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full px-5 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md shadow-emerald-700/25 transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="check-circle-2" class="w-4 h-4 text-amber-300"></i>
+                                <span id="order-submit-text">Terbitkan Order &amp; Billing</span>
+                            </button>
+                            <button type="button" onclick="closeOrderModal()" class="w-full px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors">
+                                Batal
+                            </button>
+                        </div>
                     </div>
-
                 </div>
-
-                <!-- Footer Modal -->
-                <div class="lis-modal-footer px-5 py-3.5 border-t border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0">
-                    <div class="text-[11px] text-slate-500 flex items-center gap-2">
-                        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-700 flex-shrink-0"></i>
-                        <span>Standar SIMRS LIS UPT Laboratorium Kesehatan Provinsi Riau</span>
-                    </div>
-                    <div class="flex items-center gap-2.5">
-                        <button type="button" onclick="closeOrderModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors">
-                            Batal
-                        </button>
-                        <button type="submit" class="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md shadow-emerald-700/25 transition-all flex items-center gap-2 border border-emerald-600/40">
-                            <i data-lucide="check-circle-2" class="w-4 h-4 text-amber-300"></i>
-                            <span>Terbitkan Order LIS & Billing</span>
-                        </button>
-                    </div>
-                </div>
-
             </form>
         </div>
     </div>
@@ -1158,7 +1123,17 @@
 <script>
     let currentFilterType = 'all';
     let table = null;
-    let availableTariffs = { parameters: [], templates: [] };
+    const PAGE_MODE = '<?= $isLing ? 'lingkungan' : 'umum' ?>';
+    const CAN_EDIT = <?= !empty($can_edit) ? 'true' : 'false' ?>;
+    let orderMode = 'baru';      // 'baru' | 'tambah' (tambah pemeriksaan ke order yang sudah terbit)
+    let tambahRegId = null;
+    let availableTariffs = { parameters: [], templates: [], env_parameters: [], env_packages: [], env_sample_types: [] };
+    let clinicalCategoryOptions = null;
+    let categoryMode = 'klinis';
+
+    function isEnvMode() {
+        return document.getElementById('form-kategori').value === 'lingkungan';
+    }
     let cartItems = [];
     let currentTotalTagihan = 0;
 
@@ -1176,6 +1151,7 @@
                 url: '<?= site_url('pendaftaran/fetch') ?>',
                 type: 'GET',
                 data: function(d) {
+                    d.modul = PAGE_MODE;
                     d.tipe_pasien = currentFilterType;
                     d.status_bayar = $('#filter-status-bayar').val();
                     d.status_order = <?= !empty($is_sampling_queue) ? "'sampling'" : "''" ?>;
@@ -1291,6 +1267,13 @@
                             <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                         </button>`;
 
+                        // Tombol Tambah Pemeriksaan (order belum lunas & belum divalidasi)
+                        const canAddItem = CAN_EDIT && ['UNPAID', 'GUARANTEED'].includes(d.status_pembayaran) && ['registered', 'sampling', 'processing'].includes(d.status_order);
+                        const btnTambah = canAddItem ? `<button type="button" onclick="openTambahModal(${d.id})" class="p-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-[10px] font-bold transition-all shadow-2xs flex items-center gap-1" title="Tambah pemeriksaan ke order ini">
+                            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                            <span class="hidden xl:inline text-[9px]">Tambah Uji</span>
+                        </button>` : '';
+
                         // KHUSUS MENU: SAMPLING & ANTRIAN LAB (Fokus Pengambilan / Penerimaan Sampel)
                         if (isSamplingMode) {
                             let btnSampling = '';
@@ -1309,6 +1292,7 @@
                             return `<div class="flex items-center justify-center gap-1.5 flex-wrap">
                                 ${btnSampling}
                                 ${btnPrintBarcode}
+                                ${btnTambah}
                                 ${btnDetail}
                             </div>`;
                         }
@@ -1348,7 +1332,8 @@
                             ${btnPrintBarcode}
                             ${btnPrintOrder}
                             ${btnPrintHasil}
-                            ${btnDetail}
+                            ${btnTambah}
+                                ${btnDetail}
                         </div>`;
                     }
                 }
@@ -1415,7 +1400,7 @@
     }
 
     function loadSummary() {
-        fetch('<?= site_url('pendaftaran/summary') ?>')
+        fetch('<?= site_url('pendaftaran/summary') ?>?modul=' + PAGE_MODE)
             .then(r => r.json())
             .then(res => {
                 if (res.status === 'success') {
@@ -1431,7 +1416,60 @@
     // =========================================================================
     // MODAL FORM PENDAFTARAN & ORDER
     // =========================================================================
+    function setOrderModalTexts() {
+        const tambah = (orderMode === 'tambah');
+        const ling = (PAGE_MODE === 'lingkungan');
+        document.getElementById('order-modal-title').textContent = tambah ? 'Tambah Pemeriksaan' : (ling ? 'Pendaftaran Uji Lingkungan Baru' : 'Pendaftaran Order Baru');
+        document.getElementById('order-modal-sub').textContent = tambah ? 'Pilih pemeriksaan tambahan untuk order yang sudah terbit'
+            : (ling ? 'Pemohon: perusahaan / instansi. Isi data, lalu pilih parameter atau paket uji.' : 'Isi berurutan dari atas: Pemohon \u2192 Jenis Layanan \u2192 Data \u2192 Parameter Uji');
+        document.getElementById('order-submit-text').textContent = tambah ? 'Tambahkan ke Order' : 'Terbitkan Order & Billing';
+    }
+
+    function showOrderModal() {
+        const modal = document.getElementById('modal-order');
+        const backdrop = document.getElementById('modal-backdrop');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        backdrop.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function openTambahModal(id) {
+        fetch('<?= site_url('pendaftaran/get') ?>/' + id)
+            .then(r => r.json())
+            .then(res => {
+                if (res.status !== 'success') { LIS.alert('Gagal', res.message || 'Data tidak ditemukan.', 'error'); return; }
+                const reg = res.data;
+                orderMode = 'tambah';
+                tambahRegId = reg.id;
+
+                document.getElementById('order-form').reset();
+                document.getElementById('form-client-id').value = '';
+                cartItems = [];
+                renderCart();
+                document.getElementById('form-tipe-pasien').value = reg.tipe_pasien;
+                document.getElementById('form-kategori').value = reg.kategori_pemeriksaan || 'klinis';
+                document.getElementById('form-kelompok-tarif').value = reg.kelompok_tarif || 'umum';
+                document.getElementById('form-diskon-persen').value = 0;
+
+                document.getElementById('tambah-info-title').textContent = reg.nomor_registrasi + ' - ' + reg.nama_pasien;
+                document.getElementById('tambah-info-detail').textContent = (reg.instansi_pengirim ? reg.instansi_pengirim + ' | ' : '')
+                    + (reg.items ? reg.items.length : 0) + ' item terdaftar | Tagihan saat ini Rp ' + Number(reg.total_biaya).toLocaleString('id-ID')
+                    + ' (' + reg.status_pembayaran + ')'
+                    + (Number(reg.diskon_persen) > 0 ? ' | Diskon ' + reg.diskon_persen + '%' : '');
+
+                setOrderModalTexts();
+                applyFormVisibility();
+                loadTariffsForForm();
+                showOrderModal();
+            });
+    }
+
     function openOrderModal() {
+        orderMode = 'baru';
+        tambahRegId = null;
+        setOrderModalTexts();
         document.getElementById('order-form').reset();
         document.getElementById('form-client-id').value = '';
         cartItems = [];
@@ -1458,14 +1496,7 @@
 
         setFormTipe('mandiri');
         loadTariffsForForm();
-
-        const modal = document.getElementById('modal-order');
-        const backdrop = document.getElementById('modal-backdrop');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        backdrop.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        if (window.lucide) lucide.createIcons();
+        showOrderModal();
     }
 
     function closeOrderModal() {
@@ -1477,57 +1508,107 @@
         document.body.style.overflow = '';
     }
 
-    function setFormTipe(tipe) {
-        document.getElementById('form-tipe-pasien').value = tipe;
-        const types = [
-            { key: 'mandiri', target: 'mandiri' },
-            { key: 'rujukan', target: 'rujukan_faskes' },
-            { key: 'perusahaan', target: 'perusahaan_lingkungan' }
-        ];
+    // Kartu pilihan (tipe pemohon & jenis layanan): satu gaya aktif/non-aktif
+    const CARD_ON = 'p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 border-emerald-700 bg-emerald-50 shadow-xs';
+    const CARD_OFF = 'p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 border-slate-200 bg-white hover:border-slate-300';
 
-        types.forEach(t => {
-            const btn = document.getElementById('btn-tipe-' + t.key);
-            const icon = document.getElementById('icon-tipe-' + t.key);
-            const check = document.getElementById('badge-check-' + t.key);
-            const isMatch = (tipe === t.target);
+    function markCards(prefix, activeKey) {
+        document.querySelectorAll('button[id^="' + prefix + '"]').forEach(btn => {
+            btn.className = (btn.id === prefix + activeKey) ? CARD_ON : CARD_OFF;
+        });
+    }
 
-            if (btn) {
-                if (isMatch) {
-                    btn.className = 'relative p-3.5 rounded-xl border-2 border-emerald-700 bg-emerald-50/70 text-emerald-950 text-left transition-all flex items-start gap-3 shadow-xs';
-                } else {
-                    btn.className = 'relative p-3.5 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50/80 text-slate-700 text-left transition-all flex items-start gap-3';
-                }
-            }
-            if (icon) {
-                if (isMatch) {
-                    icon.className = 'w-10 h-10 rounded-xl bg-emerald-700 text-amber-300 flex items-center justify-center flex-shrink-0 shadow-xs transition-colors';
-                } else {
-                    icon.className = 'w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center flex-shrink-0 transition-colors';
-                }
-            }
-            if (check) {
-                if (isMatch) {
-                    check.classList.remove('hidden');
-                } else {
-                    check.classList.add('hidden');
-                }
-            }
+    // Tampilkan/sembunyikan blok sesuai data-tipe & data-layanan. Input pada blok tersembunyi
+    // di-disable agar tidak ikut terkirim (mis. gender/tgl lahir untuk uji sampel lingkungan).
+    function applyFormVisibility() {
+        const tipe = document.getElementById('form-tipe-pasien').value;
+        const layanan = document.getElementById('form-kategori').value;
+        const lingPage = (PAGE_MODE === 'lingkungan');
+        const tambah = (orderMode === 'tambah');
+        const bodySections = ['sec-pemohon', 'sec-data', 'sec-bayar'];
+
+        // Aktifkan ulang semua isian; blok tersembunyi di-disable lagi oleh loop di bawah
+        bodySections.forEach(id => document.querySelectorAll('#' + id + ' input, #' + id + ' select, #' + id + ' textarea').forEach(f => { f.disabled = false; }));
+
+        document.querySelectorAll('#order-form [data-tipe], #order-form [data-layanan]').forEach(el => {
+            const okTipe = !el.dataset.tipe || el.dataset.tipe.split(' ').includes(tipe);
+            const okLayanan = !el.dataset.layanan || el.dataset.layanan.split(' ').includes(layanan);
+            const show = okTipe && okLayanan;
+            el.classList.toggle('hidden', !show);
+            el.querySelectorAll('input, select, textarea').forEach(f => { f.disabled = !show; });
         });
 
-        // Toggle radio alur pembayaran
+        // Label mengikuti konteks
+        const env = (layanan === 'lingkungan');
+        const subjek = env ? 'Nama Sampel / Titik Sampling' : (layanan === 'mcu' ? 'Nama Karyawan Peserta MCU' : 'Nama Lengkap Pasien');
+        document.getElementById('lbl-nama').innerHTML = subjek + ' <span class="req">*</span>';
+        document.getElementById('form-nama-pasien').placeholder = env ? 'Contoh: Air sumur kantor / Outlet IPAL' : 'Sesuai identitas resmi';
+        document.getElementById('title-data').textContent = env ? 'Data sampel & kontak' : (layanan === 'mcu' ? 'Data peserta MCU' : 'Data pasien');
+        document.getElementById('lbl-telepon').innerHTML = (env ? 'No. HP Penanggung Jawab' : 'No. WhatsApp / HP') + ' <span class="req">*</span>';
+        document.getElementById('lbl-alamat').textContent = env ? 'Lokasi Pengambilan Sampel / Alamat' : 'Alamat';
+        document.getElementById('lbl-instansi').textContent = tipe === 'rujukan_faskes' ? 'Faskes Pengirim' : 'Perusahaan / Instansi Pemohon';
+        const hasLayananStep = (tipe === 'perusahaan_lingkungan' && !lingPage);
+        document.getElementById('num-data').textContent = hasLayananStep ? '3' : '2';
+        document.getElementById('num-uji').textContent = hasLayananStep ? '4' : '3';
+
+        // Halaman Pendaftaran Uji Lingkungan: pemohon selalu perusahaan, layanan selalu lingkungan
+        const show = (id, on) => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !on); };
+        show('grp-tipe', !lingPage);
+        show('sec-layanan', hasLayananStep && !tambah);
+        show('btn-layanan-lingkungan', false);   // lingkungan hanya lewat menu Pendaftaran Uji Lingkungan
+
+        // Mode tambah pemeriksaan: hanya katalog uji yang tampil
+        show('sec-pemohon', !tambah);
+        show('sec-data', !tambah);
+        show('sec-bayar', !tambah);
+        show('row-diskon', !tambah);
+        show('box-tambah-info', tambah);
+        if (tambah) {
+            bodySections.forEach(id => document.querySelectorAll('#' + id + ' input, #' + id + ' select, #' + id + ' textarea').forEach(f => { f.disabled = true; }));
+        }
+    }
+
+    function setLayanan(kat) {
+        const wasEnv = isEnvMode();
+        if (cartItems.length && wasEnv !== (kat === 'lingkungan')) {
+            cartItems = [];
+            renderCart();
+            LIS.toast('info', 'Daftar uji dikosongkan karena jenis layanan berubah.');
+        }
+        document.getElementById('form-kategori').value = kat;
+        markCards('btn-layanan-', kat);
+        applyFormVisibility();
+        populateCategoryFilter(false);
+        renderTariffCatalog();
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function setFormTipe(tipe) {
+        const lingPage = (PAGE_MODE === 'lingkungan');
+        if (lingPage) tipe = 'perusahaan_lingkungan';
+        document.getElementById('form-tipe-pasien').value = tipe;
+        markCards('btn-tipe-', tipe === 'mandiri' ? 'mandiri' : (tipe === 'rujukan_faskes' ? 'rujukan' : 'perusahaan'));
+
+        // Hanya perusahaan yang punya pilihan jenis layanan; lainnya selalu klinis
+        const kat = lingPage ? 'lingkungan' : 'klinis';
+        if (isEnvMode() !== lingPage && cartItems.length) { cartItems = []; renderCart(); }
+        document.getElementById('form-kategori').value = kat;
+        markCards('btn-layanan-', kat);
+
         if (tipe === 'perusahaan_lingkungan') {
             const radPiutang = document.querySelector('input[name="alur_pembayaran"][value="piutang_pks"]');
             if (radPiutang) radPiutang.checked = true;
             toggleAlurPembayaran('piutang_pks');
             document.getElementById('form-kelompok-tarif').value = 'perusahaan';
-            loadTariffsForForm();
         } else {
             const radMandiri = document.querySelector('input[name="alur_pembayaran"][value="mandiri_langsung"]');
             if (radMandiri) radMandiri.checked = true;
             toggleAlurPembayaran('mandiri_langsung');
             document.getElementById('form-kelompok-tarif').value = 'umum';
-            loadTariffsForForm();
         }
+        applyFormVisibility();
+        populateCategoryFilter(false);
+        loadTariffsForForm();
         if (window.lucide) lucide.createIcons();
     }
 
@@ -1535,16 +1616,16 @@
         const boxPks = document.getElementById('box-piutang-pks');
         const labelLangsung = document.getElementById('label-alur-langsung');
         const labelPiutang = document.getElementById('label-alur-piutang');
+        const base = 'p-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 ';
 
         if (alur === 'piutang_pks') {
             boxPks.classList.remove('hidden');
-            labelPiutang.className = 'p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 bg-teal-50/60 border-teal-700';
-            labelLangsung.className = 'p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 bg-white border-slate-200';
-            if (window.lucide) lucide.createIcons();
+            labelPiutang.className = base + 'bg-teal-50/60 border-teal-700';
+            labelLangsung.className = base + 'bg-white border-slate-200';
         } else {
             boxPks.classList.add('hidden');
-            labelLangsung.className = 'p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 bg-emerald-50/60 border-emerald-700';
-            labelPiutang.className = 'p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-2.5 bg-white border-slate-200';
+            labelLangsung.className = base + 'bg-emerald-50/60 border-emerald-700';
+            labelPiutang.className = base + 'bg-white border-slate-200';
         }
     }
 
@@ -1698,29 +1779,26 @@
         document.getElementById('form-email').value = c.email || '';
         document.getElementById('form-alamat').value = c.address || '';
 
-        const currentTipe = document.getElementById('form-tipe-pasien') ? document.getElementById('form-tipe-pasien').value : 'mandiri';
+        const currentTipe = document.getElementById('form-tipe-pasien').value;
 
         if (c.client_type === 'perorangan') {
             document.getElementById('form-gender').value = c.gender || 'L';
             document.getElementById('form-birth-date').value = c.birth_date || '';
             if (c.birth_date) calculateFormAge(c.birth_date);
-            if (currentTipe === 'perusahaan_lingkungan') {
-                setFormTipe('mandiri');
-            }
         } else {
-            // Perusahaan atau Faskes Mitra
-            if (currentTipe === 'rujukan_faskes') {
-                document.getElementById('form-instansi-pengirim').value = c.name;
-                document.getElementById('form-instansi-penjamin').value = c.name;
-                document.getElementById('form-pic-penjamin').value = c.pic_name || '';
-                document.getElementById('form-diskon-persen').value = c.contract_discount || 0;
-            } else {
+            // Perusahaan / faskes: nama perusahaan masuk ke kolom instansi, bukan nama subjek
+            if (currentTipe === 'mandiri') {
                 setFormTipe('perusahaan_lingkungan');
-                document.getElementById('form-instansi-penjamin').value = c.name;
-                document.getElementById('form-pic-penjamin').value = c.pic_name || '';
-                document.getElementById('form-diskon-persen').value = c.contract_discount || 0;
             }
+            document.getElementById('form-nama-pasien').value = '';
+            document.getElementById('form-nik-pasien').value = '';
+            document.getElementById('form-nomor-rm').value = '';
+            document.getElementById('form-instansi-pengirim').value = c.name;
+            document.getElementById('form-instansi-penjamin').value = c.name;
+            document.getElementById('form-pic-penjamin').value = c.pic_name || '';
+            document.getElementById('form-diskon-persen').value = c.contract_discount || 0;
             calculateBilling();
+            document.getElementById('form-nama-pasien').focus();
         }
     }
 
@@ -1880,6 +1958,7 @@
             .then(res => {
                 if (res.status === 'success') {
                     availableTariffs = res.data;
+                    populateCategoryFilter(true);
                     renderTariffCatalog();
                 }
             });
@@ -1892,6 +1971,67 @@
 
         let html = '';
         let count = 0;
+
+        // Mode uji lingkungan: katalog = parameter lingkungan bertarif (Master Tarif > Tarif Uji Lingkungan)
+        if (isEnvMode()) {
+            const envList = availableTariffs.env_parameters || [];
+            const envPkgs = availableTariffs.env_packages || [];
+            envPkgs.forEach(k => {
+                const matchType = !catFilter || (k.sample_type_name && k.sample_type_name.toLowerCase() === catFilter);
+                const matchSearch = !searchFilter || k.package_name.toLowerCase().includes(searchFilter) || k.package_code.toLowerCase().includes(searchFilter);
+                if (!(matchType && matchSearch)) return;
+                count++;
+                const inCart = cartItems.some(it => it.tipe_item === 'env_package' && it.item_id == k.id);
+                html += `<div class="p-2 rounded-lg border ${inCart ? 'border-emerald-300 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'} flex items-center justify-between text-xs hover:bg-amber-100/60 transition-colors">
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-200 text-amber-900 border border-amber-300">PAKET</span>
+                            <span class="font-bold text-slate-900">${escapeHtml(k.package_name)}</span>
+                        </div>
+                        <span class="text-[10px] text-slate-500">${escapeHtml(k.sample_type_name || '')} &bull; ${k.items.length} parameter</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-mono font-bold text-emerald-800">Rp ${Number(k.total_tarif).toLocaleString('id-ID')}</span>
+                        <button type="button" onclick="addEnvPackageToCartById(${k.id})" class="px-2.5 py-1 rounded ${inCart ? 'bg-emerald-700' : 'bg-emerald-700 hover:bg-emerald-800'} text-white text-[10px] font-bold shadow-2xs">
+                            ${inCart ? 'Dipilih' : '+ Tambah'}
+                        </button>
+                    </div>
+                </div>`;
+            });
+            if (envList.length === 0 && envPkgs.length === 0) {
+                catalogBox.innerHTML = '<div class="text-center py-4 text-xs text-amber-700">Belum ada parameter lingkungan yang bertarif untuk kelompok tarif ini. Atur di Master Tarif &gt; Tarif Uji Lingkungan, atau tambah manual di atas.</div>';
+                return;
+            }
+            envList.forEach(p => {
+                const matchType = !catFilter || (p.sample_type_name && p.sample_type_name.toLowerCase() === catFilter);
+                const matchSearch = !searchFilter || p.param_name.toLowerCase().includes(searchFilter) || p.param_code.toLowerCase().includes(searchFilter);
+                if (!(matchType && matchSearch)) return;
+                count++;
+                const inCart = cartItems.some(it => it.tipe_item === 'env_parameter' && it.item_id == p.id);
+                html += `<div class="p-2 rounded-lg border ${inCart ? 'border-emerald-300 bg-emerald-50/60' : 'border-slate-200 bg-white'} flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+                    <div>
+                        <span class="font-bold text-slate-800">${escapeHtml(p.param_name)}</span>
+                        <div class="text-[10px] text-slate-400 flex items-center gap-1.5">
+                            <span class="font-mono text-emerald-800">${escapeHtml(p.param_code)}</span>
+                            <span>&bull;</span><span>${escapeHtml(p.sample_type_name || '-')}</span>
+                            <span>&bull;</span><span class="uppercase">${escapeHtml(p.sub_category || '')}</span>
+                            ${p.unit ? '<span>&bull; ' + escapeHtml(p.unit) + '</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-mono font-bold text-slate-800">Rp ${Number(p.total_tarif).toLocaleString('id-ID')}</span>
+                        <button type="button" onclick="addEnvToCartById(${p.id})" class="px-2.5 py-1 rounded ${inCart ? 'bg-emerald-700 text-white' : 'bg-slate-100 hover:bg-emerald-700 hover:text-white text-slate-700'} text-[10px] font-bold border border-slate-300 transition-colors">
+                            ${inCart ? 'Dipilih' : '+ Tambah'}
+                        </button>
+                    </div>
+                </div>`;
+            });
+            if (count === 0) {
+                html = '<div class="text-center py-4 text-xs text-slate-400">Tidak ada parameter yang sesuai filter.</div>';
+            }
+            catalogBox.innerHTML = html;
+            return;
+        }
 
         // 1. Template / Paket Lab
         if (availableTariffs.templates && availableTariffs.templates.length > 0) {
@@ -1960,6 +2100,7 @@
 
     function filterTariffList() {
         renderTariffCatalog();
+        const searchFilter = document.getElementById('tariff-search-input').value.toLowerCase().trim();
 
         // Update autocomplete suggestions
         const suggestBox = document.getElementById('tariff-search-suggestions');
@@ -1972,14 +2113,25 @@
                 suggestBox.innerHTML = '';
             } else {
                 const suggestions = [];
-                if (availableTariffs.templates) {
+                if (isEnvMode()) {
+                    (availableTariffs.env_packages || []).forEach(k => {
+                        if (suggestions.length < 4 && (k.package_name.toLowerCase().includes(searchFilter) || k.package_code.toLowerCase().includes(searchFilter))) {
+                            suggestions.push({ type: 'env_package', raw: k, name: k.package_name, code: k.package_code, price: k.total_tarif });
+                        }
+                    });
+                    (availableTariffs.env_parameters || []).forEach(p => {
+                        if (suggestions.length < 8 && (p.param_name.toLowerCase().includes(searchFilter) || p.param_code.toLowerCase().includes(searchFilter))) {
+                            suggestions.push({ type: 'env', raw: p, name: p.param_name, code: p.param_code, price: p.total_tarif });
+                        }
+                    });
+                } else if (availableTariffs.templates) {
                     availableTariffs.templates.forEach(tpl => {
                         if (suggestions.length < 6 && (tpl.template_name.toLowerCase().includes(searchFilter) || tpl.template_code.toLowerCase().includes(searchFilter))) {
                             suggestions.push({ type: 'template', raw: tpl, name: tpl.template_name, code: tpl.template_code, price: tpl.total_tarif });
                         }
                     });
                 }
-                if (availableTariffs.parameters) {
+                if (!isEnvMode() && availableTariffs.parameters) {
                     availableTariffs.parameters.forEach(p => {
                         if (suggestions.length < 8 && (p.parameter_name.toLowerCase().includes(searchFilter) || p.parameter_code.toLowerCase().includes(searchFilter))) {
                             suggestions.push({ type: 'parameter', raw: p, name: p.parameter_name, code: p.parameter_code, price: p.total_tarif });
@@ -2010,7 +2162,11 @@
     function selectTariffSuggestion(idx) {
         if (window._lastTariffSuggestions && window._lastTariffSuggestions[idx]) {
             const item = window._lastTariffSuggestions[idx];
-            if (item.type === 'template') {
+            if (item.type === 'env_package') {
+                addEnvPackageToCart(item.raw);
+            } else if (item.type === 'env') {
+                addEnvToCart(item.raw);
+            } else if (item.type === 'template') {
                 addTemplateToCart(item.raw);
             } else {
                 addParameterToCart(item.raw);
@@ -2092,6 +2248,109 @@
         LIS.toast('success', 'Paket ' + tpl.template_name + ' ditambahkan.');
     }
 
+    function addManualItem() {
+        const nama = document.getElementById('man-nama').value.trim();
+        const tarif = parseFloat(document.getElementById('man-tarif').value);
+        if (!nama || isNaN(tarif) || tarif < 0) {
+            LIS.alert('Peringatan', 'Isi nama uji dan tarif (boleh 0).', 'warning');
+            return;
+        }
+        cartItems.push({
+            tipe_item: 'parameter', item_id: 0, kode_item: 'MANUAL', nama_item: nama,
+            kategori_lab: 'Uji Lingkungan', metode_uji: '-', satuan: '-',
+            jasa_manajemen: 0, jasa_dokter: 0, jasa_petugas: 0, kso: 0, bhp: 0, tarif: tarif
+        });
+        document.getElementById('man-nama').value = '';
+        document.getElementById('man-tarif').value = '';
+        renderCart();
+    }
+
+    function addEnvToCartById(id) {
+        const p = (availableTariffs.env_parameters || []).find(x => Number(x.id) === Number(id));
+        if (p) addEnvToCart(p);
+    }
+
+    function addEnvToCart(p) {
+        if (cartItems.some(it => it.tipe_item === 'env_parameter' && it.item_id == p.id)) {
+            LIS.toast('info', p.param_name + ' sudah ada di daftar.');
+            return;
+        }
+        cartItems.push({
+            tipe_item: 'env_parameter',
+            item_id: p.id,
+            kode_item: p.param_code,
+            nama_item: p.param_name,
+            kategori_lab: p.sample_type_name || 'Uji Lingkungan',
+            metode_uji: p.method_default || '-',
+            satuan: p.unit || '-',
+            jasa_manajemen: Number(p.jasa_manajemen || 0),
+            jasa_dokter: Number(p.jasa_dokter || 0),
+            jasa_petugas: Number(p.jasa_petugas || 0),
+            kso: Number(p.kso || 0),
+            bhp: Number(p.bhp || 0),
+            tarif: Number(p.total_tarif || 0)
+        });
+        renderCart();
+        renderTariffCatalog();
+    }
+
+    function addEnvPackageToCartById(id) {
+        const k = (availableTariffs.env_packages || []).find(x => Number(x.id) === Number(id));
+        if (k) addEnvPackageToCart(k);
+    }
+
+    function addEnvPackageToCart(k) {
+        if (cartItems.some(it => it.tipe_item === 'env_package' && it.item_id == k.id)) {
+            LIS.toast('info', 'Paket ' + k.package_name + ' sudah ada di daftar.');
+            return;
+        }
+        cartItems.push({
+            tipe_item: 'env_package',
+            item_id: k.id,
+            kode_item: k.package_code,
+            nama_item: k.package_name,
+            kategori_lab: k.sample_type_name || 'Paket Uji Lingkungan',
+            metode_uji: k.items.length + ' parameter',
+            satuan: '-',
+            param_names: k.items.map(i => i.param_name),
+            jasa_manajemen: Number(k.jasa_manajemen || 0),
+            jasa_dokter: Number(k.jasa_dokter || 0),
+            jasa_petugas: Number(k.jasa_petugas || 0),
+            kso: Number(k.kso || 0),
+            bhp: Number(k.bhp || 0),
+            tarif: Number(k.total_tarif || 0)
+        });
+        renderCart();
+        renderTariffCatalog();
+    }
+
+    // Filter kategori: kategori lab (klinis/MCU) atau tipe sampel (lingkungan)
+    function populateCategoryFilter(force) {
+        const sel = document.getElementById('select-category-filter');
+        if (clinicalCategoryOptions === null) clinicalCategoryOptions = sel.innerHTML;
+        const mode = isEnvMode() ? 'lingkungan' : 'klinis';
+        if (!force && mode === categoryMode) return;
+        categoryMode = mode;
+
+        if (mode === 'lingkungan') {
+            sel.innerHTML = '<option value="">Semua tipe sampel</option>' +
+                (availableTariffs.env_sample_types || []).map(t => '<option value="' + escapeHtml(t.name) + '">' + escapeHtml(t.name) + '</option>').join('');
+            syncEnvTypeFilter();
+        } else {
+            sel.innerHTML = clinicalCategoryOptions;
+        }
+    }
+
+    // Jenis sampel di form menentukan tipe sampel katalog (mis. Air Limbah -> parameter Air Limbah)
+    function syncEnvTypeFilter() {
+        if (!isEnvMode()) return;
+        const val = (document.getElementById('form-jenis-sampel-env').value || '').toLowerCase();
+        const sel = document.getElementById('select-category-filter');
+        const match = (availableTariffs.env_sample_types || []).find(t => val.startsWith(t.name.toLowerCase()));
+        sel.value = match ? match.name : '';
+        renderTariffCatalog();
+    }
+
     function removeCartItem(idx) {
         cartItems.splice(idx, 1);
         renderCart();
@@ -2114,7 +2373,7 @@
 
         let html = '';
         cartItems.forEach((it, idx) => {
-            const badge = it.tipe_item === 'template' ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300">PAKET</span> ' : '';
+            const badge = (it.tipe_item === 'template' || it.tipe_item === 'env_package') ? '<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300">PAKET</span> ' : '';
             html += `<tr>
                 <td class="p-2 font-medium text-slate-800">
                     ${badge}${it.nama_item}
@@ -2160,6 +2419,26 @@
 
         if (cartItems.length === 0) {
             LIS.alert('Order Kosong', 'Silakan pilih minimal 1 parameter atau paket pemeriksaan lab.', 'warning');
+            return;
+        }
+
+        if (orderMode === 'tambah') {
+            const fdT = new FormData();
+            fdT.append('id', tambahRegId);
+            fdT.append('items_json', JSON.stringify(cartItems));
+            fetch('<?= site_url('pendaftaran/tambah_item') ?>', { method: 'POST', body: fdT, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.status === 'success') {
+                        closeOrderModal();
+                        LIS.toast('success', res.message);
+                        reloadTable();
+                        loadSummary();
+                    } else {
+                        LIS.alert('Tidak dapat menambah', res.message || 'Pemeriksaan gagal ditambahkan.', 'error');
+                    }
+                })
+                .catch(err => LIS.showError('Gagal Menambah Pemeriksaan', err, 'Terjadi gangguan jaringan atau server.'));
             return;
         }
 

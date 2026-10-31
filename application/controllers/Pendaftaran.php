@@ -26,6 +26,47 @@ class Pendaftaran extends CI_Controller {
     }
 
     /**
+     * Hak akses mengikuti jenis pendaftaran: order lingkungan memakai menu
+     * "Pendaftaran Uji Lingkungan" (pendaftaran/lingkungan), selain itu menu Pendaftaran.
+     */
+    private function _require_reg_access($id, $action) {
+        $row = $this->db->select('kategori_pemeriksaan')->get_where('pendaftaran', ['id' => (int)$id])->row_array();
+        $menu = ($row && $row['kategori_pemeriksaan'] === 'lingkungan') ? 'pendaftaran/lingkungan' : 'pendaftaran';
+        $this->rbac_lib->require_access($menu, $action);
+    }
+
+    /**
+     * Halaman Pendaftaran Uji Lingkungan (perusahaan / instansi: limbah, air, udara, dll.)
+     */
+    public function lingkungan() {
+        $this->rbac_lib->require_access('pendaftaran/lingkungan', 'view');
+
+        $data['title'] = 'Pendaftaran Uji Lingkungan - Labkesda Riau';
+        $data['active_menu'] = 'pendaftaran/lingkungan';
+        $data['user'] = $this->rbac_lib->user();
+        $data['menu_tree'] = $this->rbac_lib->get_menu_tree();
+        $data['is_lingkungan'] = true;
+
+        $data['can_create'] = $this->rbac_lib->has_access('pendaftaran/lingkungan', 'create');
+        $data['can_edit'] = $this->rbac_lib->has_access('pendaftaran/lingkungan', 'edit');
+        $data['can_delete'] = $this->rbac_lib->has_access('pendaftaran/lingkungan', 'delete');
+
+        $data['summary'] = $this->pendaftaran_model->get_summary_stats(true);
+        $data['categories'] = $this->db->where('is_active', 1)->order_by('sort_order', 'ASC')->get('lab_categories')->result_array();
+        $data['akun_bayar_list'] = $this->rekening_model->get_all_akun_bayar(['is_active' => 1]);
+        $data['akun_piutang_list'] = $this->rekening_model->get_all_akun_piutang(['is_active' => 1]);
+        $data['default_dokter_pj'] = get_setting('dokter_penanggung_jawab', 'dr. Hj. Siti Rahmah, Sp.PK, M.Kes');
+
+        $this->_log('VIEW_LINGKUNGAN', 'Halaman Pendaftaran Uji Lingkungan diakses.');
+
+        $this->load->view('layout/header', $data);
+        $this->load->view('layout/sidebar', $data);
+        $this->load->view('layout/topbar', $data);
+        $this->load->view('pendaftaran/index', $data);
+        $this->load->view('layout/footer', $data);
+    }
+
+    /**
      * Halaman Utama Pendaftaran & Order LIS
      */
     public function index() {
@@ -95,9 +136,11 @@ class Pendaftaran extends CI_Controller {
      * AJAX DataTables Server-Side Fetcher
      */
     public function fetch() {
-        $this->rbac_lib->require_access('pendaftaran', 'view');
+        $modul = $this->input->get('modul', TRUE) === 'lingkungan' ? 'lingkungan' : 'umum';
+        $this->rbac_lib->require_access($modul === 'lingkungan' ? 'pendaftaran/lingkungan' : 'pendaftaran', 'view');
 
         $params = [
+            'modul' => $modul,
             'start' => $this->input->get('start', TRUE),
             'length' => $this->input->get('length', TRUE),
             'search' => $this->input->get('search[value]', TRUE),
@@ -133,7 +176,7 @@ class Pendaftaran extends CI_Controller {
      * AJAX Ambil Detail Registrasi & Order
      */
     public function get($id) {
-        $this->rbac_lib->require_access('pendaftaran', 'view');
+        $this->_require_reg_access($id, 'view');
 
         $data = $this->pendaftaran_model->get_by_id($id);
         if (!$data) {
@@ -271,7 +314,8 @@ class Pendaftaran extends CI_Controller {
      * AJAX Simpan Pendaftaran & Order Baru (Alur 1)
      */
     public function save() {
-        $this->rbac_lib->require_access('pendaftaran', 'create');
+        $kategori = trim((string)$this->input->post('kategori_pemeriksaan', TRUE));
+        $this->rbac_lib->require_access($kategori === 'lingkungan' ? 'pendaftaran/lingkungan' : 'pendaftaran', 'create');
 
         $user = $this->rbac_lib->user();
         $userId = isset($user['id']) ? (int)$user['id'] : null;
@@ -348,10 +392,15 @@ class Pendaftaran extends CI_Controller {
 
             if (!empty($nomorPks) && !empty($instansiPenjamin)) {
                 $statusPembayaran = 'GUARANTEED';
-                $statusOrder = 'sampling'; // Langsung aktif barcode sampel
+                // Langsung aktif barcode sampel; order lingkungan dikerjakan di modul Kesehatan Lingkungan, bukan antrian lab klinis
+                $statusOrder = ($kategori === 'lingkungan') ? 'registered' : 'sampling';
                 $metodePembayaran = 'SPK / PKS Mitra';
                 $waktuBayar = date('Y-m-d H:i:s');
             }
+        }
+
+        if ($kategori === 'lingkungan') {
+            $tipePasien = 'perusahaan_lingkungan';
         }
 
         $data = [
@@ -421,14 +470,54 @@ class Pendaftaran extends CI_Controller {
 
         $regData = $this->pendaftaran_model->get_by_id($insertId);
 
+        // Order uji lingkungan otomatis dibuatkan order di modul Kesehatan Lingkungan
+        $message = 'Pendaftaran & Order LIS berhasil diterbitkan.';
+        if (($regData['kategori_pemeriksaan'] ?? '') === 'lingkungan') {
+            $this->load->model('kesling_model');
+            $env = $this->kesling_model->create_from_pendaftaran($regData, $userId, $items);
+            if ($env['status'] === 'created') {
+                $message .= ' Order lingkungan ' . $env['order_number'] . ' dibuat di modul Kesehatan Lingkungan.';
+            } elseif ($env['status'] === 'no_type') {
+                $message .= ' Jenis sampel ini belum punya tipe di modul Kesehatan Lingkungan, order uji dibuat manual di sana.';
+            }
+        }
+
         return $this->output
             ->set_content_type('application/json')
             ->set_output(json_encode([
                 'status' => 'success',
-                'message' => 'Pendaftaran & Order LIS berhasil diterbitkan.',
+                'message' => $message,
                 'id' => $insertId,
                 'data' => $regData
             ]));
+    }
+
+    /**
+     * AJAX Tambah pemeriksaan ke pendaftaran yang sudah terbit
+     */
+    public function tambah_item() {
+        $id = (int)$this->input->post('id', TRUE);
+        $this->_require_reg_access($id, 'edit');
+
+        $items = json_decode($this->input->post('items_json', FALSE), true);
+        if (empty($items) || !is_array($items)) {
+            return $this->output->set_status_header(400)->set_content_type('application/json')
+                ->set_output(json_encode(['status' => 'error', 'message' => 'Pilih minimal 1 pemeriksaan.']));
+        }
+
+        $user = $this->rbac_lib->user();
+        $userId = isset($user['id']) ? (int)$user['id'] : null;
+        $userName = isset($user['full_name']) ? $user['full_name'] : ($user['username'] ?? 'Petugas');
+
+        $result = $this->pendaftaran_model->add_items($id, $items, $userId, $userName);
+        if (!$result['status']) {
+            return $this->output->set_status_header(409)->set_content_type('application/json')
+                ->set_output(json_encode(['status' => 'error', 'message' => $result['message']]));
+        }
+
+        $this->_log('TAMBAH_PEMERIKSAAN', sprintf('ID=%d | +%d item', $id, count($items)));
+        return $this->output->set_content_type('application/json')
+            ->set_output(json_encode(['status' => 'success', 'message' => $result['message'], 'total_biaya' => $result['total_biaya']]));
     }
 
     /**
@@ -609,7 +698,7 @@ class Pendaftaran extends CI_Controller {
      * AJAX Update Status Order & Sampling (Alur 3)
      */
     public function update_status() {
-        $this->rbac_lib->require_access('pendaftaran', 'edit');
+        $this->_require_reg_access((int)$this->input->post('id', TRUE), 'edit');
 
         $id = (int)$this->input->post('id', TRUE);
         $newStatus = trim($this->input->post('status_order', TRUE));
@@ -629,9 +718,9 @@ class Pendaftaran extends CI_Controller {
         $ok = $this->pendaftaran_model->update_status_order($id, $newStatus, $catatan, $userId, $userName);
         if (!$ok) {
             return $this->output
-                ->set_status_header(500)
+                ->set_status_header(409)
                 ->set_content_type('application/json')
-                ->set_output(json_encode(['status' => 'error', 'message' => 'Gagal mengubah status order.']));
+                ->set_output(json_encode(['status' => 'error', 'message' => 'Status tidak dapat diubah: order belum dibayar/dijamin, sudah final/batal, atau status "completed" hanya bisa dicapai lewat verifikasi berjenjang.']));
         }
 
         return $this->output
@@ -643,7 +732,7 @@ class Pendaftaran extends CI_Controller {
      * AJAX Batalkan Pendaftaran
      */
     public function batal() {
-        $this->rbac_lib->require_access('pendaftaran', 'delete');
+        $this->_require_reg_access((int)$this->input->post('id', TRUE), 'delete');
 
         $id = (int)$this->input->post('id', TRUE);
         $alasan = trim($this->input->post('alasan', TRUE));
@@ -669,7 +758,9 @@ class Pendaftaran extends CI_Controller {
      * AJAX Ambil Summary Terkini
      */
     public function summary() {
-        $summary = $this->pendaftaran_model->get_summary_stats();
+        $lingkungan = $this->input->get('modul', TRUE) === 'lingkungan';
+        $this->rbac_lib->require_access($lingkungan ? 'pendaftaran/lingkungan' : 'pendaftaran', 'view');
+        $summary = $this->pendaftaran_model->get_summary_stats($lingkungan);
         return $this->output
             ->set_content_type('application/json')
             ->set_output(json_encode(['status' => 'success', 'summary' => $summary]));
@@ -679,7 +770,7 @@ class Pendaftaran extends CI_Controller {
      * CETAK KUITANSI BILLING RESMI BLUD (Standar SAK / SAP Pemprov Riau)
      */
     public function cetak_kuitansi($id) {
-        $this->rbac_lib->require_access('pendaftaran', 'view');
+        $this->_require_reg_access($id, 'view');
 
         $data['reg'] = $this->pendaftaran_model->get_by_id($id);
         if (!$data['reg']) {
@@ -693,7 +784,7 @@ class Pendaftaran extends CI_Controller {
      * CETAK LABEL BARCODE TABUNG SAMPEL LAB
      */
     public function cetak_barcode($id) {
-        $this->rbac_lib->require_access('pendaftaran', 'view');
+        $this->_require_reg_access($id, 'view');
 
         $data['reg'] = $this->pendaftaran_model->get_by_id($id);
         if (!$data['reg']) {
@@ -708,7 +799,7 @@ class Pendaftaran extends CI_Controller {
      * CETAK FORMULIR PERMINTAAN PEMERIKSAAN LAB (ORDER SHEET)
      */
     public function cetak_order($id) {
-        $this->rbac_lib->require_access('pendaftaran', 'view');
+        $this->_require_reg_access($id, 'view');
 
         $data['reg'] = $this->pendaftaran_model->get_by_id($id);
         if (!$data['reg']) {
@@ -722,11 +813,21 @@ class Pendaftaran extends CI_Controller {
      * CETAK LEMBAR RESMI HASIL PEMERIKSAAN LABORATORIUM (STANDAR KAN ISO 17025)
      */
     public function cetak_hasil($id) {
-        $this->rbac_lib->require_access('pendaftaran', 'view');
+        $this->_require_reg_access($id, 'view');
 
         $data['reg'] = $this->pendaftaran_model->get_by_id($id);
         if (!$data['reg']) {
             show_404();
+        }
+
+        // Uji lingkungan: LHU dicetak dari modul Kesehatan Lingkungan (rantai verifikasi sendiri)
+        if ($data['reg']['kategori_pemeriksaan'] === 'lingkungan') {
+            $env = $this->db->select('id')->get_where('env_orders', ['pendaftaran_id' => (int)$id])->row_array();
+            if ($env) {
+                redirect('kesling/cetak_lhu/' . (int)$env['id']);
+                return;
+            }
+            show_error('Pendaftaran uji lingkungan ini belum punya order di modul Kesehatan Lingkungan, sehingga belum ada LHU.', 409);
         }
 
         $this->load->model('approval_model');
@@ -734,8 +835,9 @@ class Pendaftaran extends CI_Controller {
         $data['keabsahan'] = $keabsahan;
         $data['approvals'] = $this->approval_model->get_order_approvals($id);
 
-        // Jika hasil BELUM SAH dan sistem dikonfigurasi 'block' (Blokir total)
-        if (!$keabsahan['is_sah'] && $keabsahan['mode_belum_lengkap'] === 'block') {
+        // Hasil BELUM SAH (verifikasi berjenjang belum lengkap) tidak boleh dicetak sama sekali.
+        if (!$keabsahan['is_sah'] || $data['reg']['status_order'] !== 'completed') {
+            $this->output->set_status_header(403);
             $data['title'] = 'Akses Ditolak - Hasil Lab Belum Sah';
             $this->load->view('pendaftaran/hasil_belum_sah', $data);
             return;
