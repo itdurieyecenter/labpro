@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= isset($title) ? html_escape($title) . ' &bull; Labkes Prov. Riau' : 'UPT Laboratorium Kesehatan Provinsi Riau &bull; LIS PRO SIMRS' ?></title>
-    <link rel="stylesheet" href="<?= asset_url('css/tailwind.css') ?>">
     <link rel="stylesheet" href="<?= asset_url('plugins/sweetalert2/sweetalert2.min.css') ?>">
     <link rel="stylesheet" href="<?= asset_url('plugins/datatables/jquery.dataTables.min.css') ?>">
+    <link rel="stylesheet" href="<?= asset_url('css/tailwind.css') ?>?v=<?= filemtime(FCPATH . 'assets/css/tailwind.css') ?>">
     <script src="<?= asset_url('plugins/datatables/jquery-3.7.1.min.js') ?>"></script>
     <script src="<?= asset_url('plugins/sweetalert2/sweetalert2.all.min.js') ?>"></script>
     <script src="<?= asset_url('plugins/datatables/jquery.dataTables.min.js') ?>"></script>

@@ -61,6 +61,10 @@ $pintasan = ['7' => '7 hari', '30' => '30 hari', '90' => '90 hari'];
     background: linear-gradient(130deg, #052e22 0%, #064e3b 42%, #047857 100%);
     position: relative;
     overflow: hidden;
+    border: 1.5px solid #065f46;
+    border-bottom: 5px solid #d97706;
+    border-right: 3px solid #d97706;
+    box-shadow: 0 14px 28px -10px rgba(5, 46, 34, 0.45);
 }
 #dash .dash-kop::after {
     content: "";
@@ -86,14 +90,19 @@ $pintasan = ['7' => '7 hari', '30' => '30 hari', '90' => '90 hari'];
 
 #dash .dash-kartu {
     background: #fff;
-    border: 1px solid var(--dash-garis);
+    border: 1px solid #cbd5e1;
+    border-bottom: 3.5px solid #94a3b8;
+    border-right: 2px solid #cbd5e1;
     border-radius: 1rem;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
-    transition: box-shadow .18s ease, transform .18s ease;
+    box-shadow: 0 6px 16px -6px rgba(15, 23, 42, .08);
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
 }
 #dash .dash-kartu-hover:hover {
-    box-shadow: 0 10px 24px -12px rgba(15, 23, 42, .18);
-    transform: translateY(-1px);
+    border-color: #10b981;
+    border-bottom-color: #047857;
+    border-right-color: #047857;
+    box-shadow: 4px 12px 24px -8px rgba(4, 120, 87, .2);
+    transform: translate(-2px, -3px);
 }
 
 #dash .dash-kpi-label {
